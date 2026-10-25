@@ -1,0 +1,10 @@
+node_modules
+dist
+src-tauri/target
+src-tauri/gen
+.agents
+.aider-desk
+.work
+pnpm-lock.yaml
+test-results
+docs/构建准则.md

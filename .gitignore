@@ -1,0 +1,46 @@
+# 前端依赖与构建产物
+node_modules/
+/.pnpm-store/
+/dist/
+*.tsbuildinfo
+
+# Tauri生成物与非桌面图标
+/src-tauri/target/
+/src-tauri/gen/
+/src-tauri/icons/android/
+/src-tauri/icons/ios/
+
+# 测试结果与本地工作缓存
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/.work/
+/.aider-desk/
+
+# 本地配置与环境文件 保留可共享的示例
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.local
+
+# 运行数据可能包含个人文件路径
+history.sqlite3
+history.sqlite3-wal
+history.sqlite3-shm
+.window-state.json
+
+# 包管理器日志
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 系统文件与编辑器备份
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~

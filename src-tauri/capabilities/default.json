@@ -1,0 +1,1 @@
+{"$schema":"../gen/schemas/desktop-schema.json","identifier":"main","description":"Local desktop window and file selection","windows":["main"],"permissions":["core:default","core:window:allow-close","dialog:allow-open"]}
