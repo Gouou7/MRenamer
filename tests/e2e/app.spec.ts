@@ -63,7 +63,7 @@ test("configuration stays editable while the window shrinks", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "添加补齐", exact: true }).click();
+  await page.getByRole("button", { name: "添加与补齐", exact: true }).click();
   const config = page.locator(".config-panel");
   await config.getByLabel("内容", { exact: true }).fill("样品_");
   await config.getByRole("radio", { name: "完整名称", exact: true }).click();
@@ -95,7 +95,7 @@ test("interface text cannot be selected while input text remains editable", asyn
   await page.goto("/");
   await page.locator(".library-panel h2").dblclick();
   expect(await page.evaluate(() => window.getSelection()?.toString())).toBe("");
-  await page.getByRole("button", { name: "添加补齐", exact: true }).click();
+  await page.getByRole("button", { name: "添加与补齐", exact: true }).click();
   const input = page.getByLabel("内容", { exact: true });
   await input.fill("样品_A1");
   await input.press("ControlOrMeta+A");

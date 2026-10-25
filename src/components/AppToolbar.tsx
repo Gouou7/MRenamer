@@ -45,7 +45,7 @@ export function AppToolbar(props: Props) {
     <>
       <header className="app-header">
         <div className="header-left">
-          <Menubar className="h-6 border-0 p-0" aria-label={t("mainMenu")}>
+          <Menubar className="h-5 border-0 p-0" aria-label={t("mainMenu")}>
             <MenubarMenu>
               <MenubarTrigger>{t("fileMenu")}</MenubarTrigger>
               <MenubarContent>
@@ -119,7 +119,7 @@ export function AppToolbar(props: Props) {
         </div>
         <div className="header-actions">
           <Button
-            size="xs"
+            size="compact"
             disabled={props.executeDisabled}
             onClick={props.onExecute}
           >
@@ -130,13 +130,9 @@ export function AppToolbar(props: Props) {
             )}
             {t("execute")}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            aria-label={t("history")}
-            onClick={props.onHistory}
-          >
-            <History />
+          <Button variant="ghost" size="compact" onClick={props.onHistory}>
+            <History data-icon="inline-start" />
+            {t("history")}
           </Button>
         </div>
       </header>

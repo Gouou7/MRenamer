@@ -11,6 +11,7 @@ export async function mockDesktop(page: Page, count: number) {
       win.__previewCalls = [];
       win.__dialogCalls = [];
       win.__closeCalls = 0;
+      win.__accentColor = null;
       const entries = Array.from({ length: count }, (_, i) => ({
         id: `file-${i}`,
         path: `/fixtures/image${i}.png`,
@@ -29,6 +30,10 @@ export async function mockDesktop(page: Page, count: number) {
         transformCallback: () => ++callback,
         unregisterCallback: () => {},
         invoke: async (command: string, args: any) => {
+          if (command === "system_accent_color") {
+            if (win.__accentUnavailable) throw new Error("Color unavailable");
+            return win.__accentColor;
+          }
           if (command === "list_history") return [];
           if (command === "plugin:event|listen") return ++callback;
           if (command === "plugin:event|unlisten") return null;

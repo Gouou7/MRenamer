@@ -13,7 +13,7 @@ test("errors stay in the footer without moving the workspace", async ({
       detail: "textOrWidth",
     };
   });
-  await page.getByRole("button", { name: "添加补齐", exact: true }).click();
+  await page.getByRole("button", { name: "添加与补齐", exact: true }).click();
   await expect(page.locator(".status-bar [role=status]")).toContainText(
     "请输入内容并检查目标长度",
   );
@@ -63,7 +63,7 @@ test("errors stay in the footer without moving the workspace", async ({
 test("every rename configuration uses radio groups", async ({ page }) => {
   await page.goto("/");
   for (const name of [
-    "添加补齐",
+    "添加与补齐",
     "替换",
     "删除与保留",
     "自动编号",

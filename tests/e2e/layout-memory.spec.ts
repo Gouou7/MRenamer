@@ -75,7 +75,7 @@ test("panel widths and workspace height survive closing and reopening", async ({
       .poll(async () => Math.abs((await dimensions(wide))[id] - size))
       .toBeLessThan(2);
   }
-  await wide.getByRole("button", { name: "添加补齐", exact: true }).click();
+  await wide.getByRole("button", { name: "添加与补齐", exact: true }).click();
   for (const [id, size] of Object.entries(saved)) {
     expect(Math.abs((await dimensions(wide))[id] - size)).toBeLessThan(2);
   }

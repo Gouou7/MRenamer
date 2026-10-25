@@ -31,7 +31,7 @@ const zh = {
   chooseRule: "选择重命名规则",
   noRules: "从左侧添加规则",
   rulesHint: "规则按从上到下的顺序执行",
-  add: "添加补齐",
+  add: "添加与补齐",
   replace: "替换",
   remove: "删除与保留",
   number: "自动编号",

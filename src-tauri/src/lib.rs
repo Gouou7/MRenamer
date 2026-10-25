@@ -10,6 +10,20 @@ mod desktop {
     use std::sync::{Arc, Mutex};
     use tauri::{Emitter, Manager};
     struct State(Arc<Mutex<Engine>>);
+    #[tauri::command]
+    fn system_accent_color() -> Option<[u8; 3]> {
+        #[cfg(windows)]
+        {
+            use windows::UI::ViewManagement::{UIColorType, UISettings};
+            let color = UISettings::new()
+                .ok()?
+                .GetColorValue(UIColorType::Accent)
+                .ok()?;
+            Some([color.R, color.G, color.B])
+        }
+        #[cfg(not(windows))]
+        None
+    }
     async fn task<T: Send + 'static>(
         engine: Arc<Mutex<Engine>>,
         work: impl FnOnce(&mut Engine) -> Result<T> + Send + 'static,
@@ -108,6 +122,7 @@ mod desktop {
                 Ok(())
             })
             .invoke_handler(tauri::generate_handler![
+                system_accent_color,
                 scan_entries,
                 preview_rename,
                 execute_rename,

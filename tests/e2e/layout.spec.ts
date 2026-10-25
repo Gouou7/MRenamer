@@ -65,11 +65,18 @@ for (const scenario of [
       await expect(page.getByText(text, { exact: true })).toHaveCount(0);
     }
     await expect(page.locator(".header-actions button")).toHaveCount(2);
-    await expect(page.locator(".app-header")).toHaveCSS("height", "34px");
+    await expect(page.locator(".app-header")).toHaveCSS("height", "26px");
     await expect(page.locator(".status-bar")).toHaveCSS("height", "26px");
     for (const button of await page.locator(".header-actions button").all()) {
-      await expect(button).toHaveCSS("height", "24px");
+      await expect(button).toHaveCSS("height", "20px");
     }
+    const history = page.locator(".header-actions").getByRole("button", {
+      name: chinese ? "操作记录" : "History",
+      exact: true,
+    });
+    await expect(history).toHaveText(chinese ? "操作记录" : "History");
+    await expect(history.locator("svg")).toHaveCount(1);
+    await expect(history).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect(page.locator(".library-panel .panel-caption")).toHaveCount(0);
     for (const option of await page.locator(".library-item").all()) {
       await expect(option).toHaveCSS("height", "32px");
@@ -88,6 +95,17 @@ for (const scenario of [
       "0px",
     );
     await expect(page.getByRole("menubar")).toBeInViewport();
+    for (const trigger of await page
+      .locator("[data-slot=menubar-trigger]")
+      .all()) {
+      await expect(trigger).toHaveCSS("font-size", "12px");
+      const bounds = (await trigger.boundingBox())!;
+      const header = (await page.locator(".app-header").boundingBox())!;
+      expect(bounds.y).toBeGreaterThanOrEqual(header.y);
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(
+        header.y + header.height,
+      );
+    }
     await expect(page.locator(".app-header .brand")).toHaveCount(0);
     await expect(page.locator(".app-header h1")).toHaveCount(0);
     await expect(page.locator(".files-heading button")).toHaveCount(0);
@@ -114,8 +132,37 @@ for (const scenario of [
       await expect(
         page.getByRole("menuitem", { name, exact: true }),
       ).toBeInViewport();
+      await expect(page.getByRole("menuitem", { name, exact: true })).toHaveCSS(
+        "font-size",
+        "12px",
+      );
     }
+    await page.screenshot({
+      path: `.work/screenshots/${scenario.name}-file-menu.png`,
+      animations: "disabled",
+    });
     await page.keyboard.press("Escape");
+    // Opening the other menus by keyboard keeps the same typography and focus.
+    for (const name of chinese ? ["编辑", "关于"] : ["Edit", "About"]) {
+      const trigger = page.getByRole("menuitem", { name, exact: true });
+      await trigger.focus();
+      await trigger.press("ArrowDown");
+      const menu = page.getByRole("menu", { name, exact: true });
+      await expect(menu).toBeVisible();
+      for (const item of await menu.getByRole("menuitem").all()) {
+        await expect(item).toHaveCSS("font-size", "12px");
+      }
+      await page.keyboard.press("Escape");
+      await expect(trigger).toBeFocused();
+    }
+    await history.focus();
+    await history.press("Enter");
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: chinese ? "关闭" : "Close", exact: true })
+      .click();
+    await expect(history).toBeFocused();
     await page
       .getByRole("button", {
         name: chinese ? "字母大小写" : "Letter case",

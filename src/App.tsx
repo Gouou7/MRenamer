@@ -59,6 +59,7 @@ import {
 } from "@/lib/types";
 import { orderEntries } from "@/lib/order";
 import { useSidebarLayout } from "@/lib/use-sidebar-layout";
+import { useSystemAccent } from "@/lib/use-system-accent";
 import "@/lib/i18n";
 
 const icons = {
@@ -72,6 +73,7 @@ const icons = {
 export default function App() {
   const { t, i18n } = useTranslation();
   const desktop = isTauri();
+  useSystemAccent(desktop);
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [rules, setRules] = useState<RenameRule[]>([]);

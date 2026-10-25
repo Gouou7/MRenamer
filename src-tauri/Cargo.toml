@@ -14,7 +14,7 @@ required-features = ["desktop"]
 
 [features]
 default = ["desktop"]
-desktop = ["dep:tauri", "dep:tauri-plugin-dialog", "dep:tauri-plugin-single-instance", "dep:tauri-plugin-window-state", "dep:tauri-build"]
+desktop = ["dep:tauri", "dep:tauri-plugin-dialog", "dep:tauri-plugin-single-instance", "dep:tauri-plugin-window-state", "dep:tauri-build", "dep:windows"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [], optional = true }
@@ -35,6 +35,7 @@ dunce = "1"
 tauri-plugin-window-state = { version = "2", optional = true }
 
 [target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = ["UI_ViewManagement"], optional = true }
 windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
