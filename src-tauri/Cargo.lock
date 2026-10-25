@@ -2080,6 +2080,7 @@ dependencies = [
  "dunce",
  "file-id",
  "libc",
+ "objc2-app-kit",
  "regex",
  "rusqlite",
  "rustix",

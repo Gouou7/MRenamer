@@ -14,7 +14,7 @@ required-features = ["desktop"]
 
 [features]
 default = ["desktop"]
-desktop = ["dep:tauri", "dep:tauri-plugin-dialog", "dep:tauri-plugin-single-instance", "dep:tauri-plugin-window-state", "dep:tauri-build", "dep:windows"]
+desktop = ["dep:tauri", "dep:tauri-plugin-dialog", "dep:tauri-plugin-single-instance", "dep:tauri-plugin-window-state", "dep:tauri-build", "dep:windows", "dep:objc2-app-kit"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [], optional = true }
@@ -43,6 +43,7 @@ rustix = { version = "1", features = ["fs"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSColor", "NSColorSpace"], optional = true }
 
 [dev-dependencies]
 tempfile = "3"

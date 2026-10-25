@@ -21,8 +21,30 @@ mod desktop {
                 .ok()?;
             Some([color.R, color.G, color.B])
         }
-        #[cfg(not(windows))]
+        #[cfg(target_os = "macos")]
+        {
+            use objc2_app_kit::{NSColor, NSColorSpace};
+            // System colors are dynamic and may use a non-RGB color space.
+            let color = NSColor::controlAccentColor()
+                .colorUsingColorSpace(&NSColorSpace::sRGBColorSpace())?;
+            let channels = [
+                color.redComponent(),
+                color.greenComponent(),
+                color.blueComponent(),
+            ];
+            if channels.iter().any(|channel| !channel.is_finite()) {
+                return None;
+            }
+            Some(channels.map(|channel| (channel.clamp(0.0, 1.0) * 255.0).round() as u8))
+        }
+        #[cfg(not(any(windows, target_os = "macos")))]
         None
+    }
+
+    #[cfg(all(test, target_os = "macos"))]
+    #[test]
+    fn macos_accent_can_be_read_as_rgb() {
+        assert!(system_accent_color().is_some());
     }
     async fn task<T: Send + 'static>(
         engine: Arc<Mutex<Engine>>,

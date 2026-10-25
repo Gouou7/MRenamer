@@ -127,9 +127,53 @@ for (const theme of ["light", "dark"]) {
       /--system-primary-light/,
     );
     const fallback = (await palette(page)).primary;
-    expect(Math.max(...fallback) - Math.min(...fallback)).toBeLessThanOrEqual(
-      1,
-    );
+    expect(fallback).toEqual([52, 120, 247]);
     await expect(page.locator(".status-error")).toHaveCount(0);
   });
+
+  for (const platform of ["desktop", "browser"]) {
+    test(`${platform} defaults to #3478F7 in ${theme} theme`, async ({
+      page,
+    }) => {
+      if (platform === "desktop") await mockDesktop(page, 0);
+      await page.addInitScript((theme) => {
+        localStorage.setItem("renamer.theme", theme);
+      }, theme);
+      await page.goto("/");
+      await expect
+        .poll(async () => (await palette(page)).primary)
+        .toEqual([52, 120, 247]);
+      if (platform === "desktop") {
+        // Invalid native values use the same fallback as unavailable colors.
+        for (const color of [[256, 0, 0], [52, 120], "#3478F7"]) {
+          await page.evaluate(() => {
+            (window as any).__accentColor = [206, 32, 116];
+            window.dispatchEvent(new Event("focus"));
+          });
+          await expect(page.locator("html")).toHaveAttribute(
+            "style",
+            /--system-primary-light/,
+          );
+          await page.evaluate((color) => {
+            (window as any).__accentColor = color;
+            window.dispatchEvent(new Event("focus"));
+          }, color);
+          await expect(page.locator("html")).not.toHaveAttribute(
+            "style",
+            /--system-primary-light/,
+          );
+          await expect
+            .poll(async () => (await palette(page)).primary)
+            .toEqual([52, 120, 247]);
+        }
+      }
+      expect(
+        contrast(
+          (await palette(page)).primary,
+          (await palette(page))["primary-foreground"],
+        ),
+      ).toBeGreaterThanOrEqual(4.5);
+      await expect(page.locator(".status-error")).toHaveCount(0);
+    });
+  }
 }

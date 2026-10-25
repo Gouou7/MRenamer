@@ -144,7 +144,7 @@ pub fn case_sensitivity(parent: &Path) -> Option<bool> {
         if unsafe {
             libc::getattrlist(
                 path.as_ptr(),
-                &mut attributes,
+                (&mut attributes as *mut libc::attrlist).cast(),
                 (&mut info as *mut VolumeInfo).cast(),
                 std::mem::size_of_val(&info),
                 0,
