@@ -60,6 +60,9 @@ import {
 import { orderEntries } from "@/lib/order";
 import { useSidebarLayout } from "@/lib/use-sidebar-layout";
 import { useSystemAccent } from "@/lib/use-system-accent";
+import { VariableCatalogProvider } from "@/lib/variables";
+import { VariablesReference } from "@/components/VariablesReference";
+import type { AppError } from "@/lib/types";
 import "@/lib/i18n";
 
 const icons = {
@@ -85,9 +88,7 @@ export default function App() {
   ]);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<{ code: string; detail: string } | null>(
-    null,
-  );
+  const [error, setError] = useState<AppError | null>(null);
   const [message, setMessage] = useState("");
   const [progress, setProgress] = useState<Progress | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -136,7 +137,7 @@ export default function App() {
   const report = useCallback((e: unknown) => {
     setError(
       typeof e === "object" && e !== null && "code" in e
-        ? (e as { code: string; detail: string })
+        ? (e as AppError)
         : { code: "internal", detail: String(e) },
     );
   }, []);
@@ -366,345 +367,361 @@ export default function App() {
     );
   }, [plan, ordered, selected]);
   const config = activeRule ? (
-    <RuleEditor rule={activeRule} onChange={updateRule} disabled={busy} />
+    <RuleEditor
+      key={activeRule.id}
+      rule={activeRule}
+      onChange={updateRule}
+      disabled={busy}
+    />
   ) : null;
   const errorLabel = error
-    ? t(`errors.${error.code}`, { defaultValue: t("errors.internal") })
+    ? t(`errors.${error.code}`, {
+        ...error.params,
+        defaultValue: t("errors.internal"),
+      })
     : "";
   const detailLabel =
     error?.code === "invalidRule"
-      ? t(`errors.${error.detail}`, { defaultValue: errorLabel })
+      ? t(`errors.${error.detail}`, {
+          ...error.params,
+          defaultValue: errorLabel,
+        })
       : errorLabel;
   return (
-    <div className="app-shell">
-      <AppToolbar
-        busy={busy}
-        desktop={desktop}
-        executeDisabled={
-          !rules.some((rule) => rule.enabled) ||
-          !desktop ||
-          busy ||
-          pending ||
-          planKey !== previewKey ||
-          !plan?.changes ||
-          !!plan?.conflicts ||
-          !!recovery
-        }
-        undoDisabled={busy || !undoable}
-        removeDisabled={busy || !selected.size}
-        clearDisabled={busy || !entries.length}
-        onAdd={(directory) => void choose(directory)}
-        onExecute={() => void execute()}
-        onUndo={() => undoable && void undo(undoable.id)}
-        onRemove={() => {
-          setEntries((entries) =>
-            entries.filter((entry) => !selected.has(entry.id)),
-          );
-          setSelected(new Set());
-        }}
-        onClear={() => {
-          setEntries([]);
-          setSelected(new Set());
-        }}
-        onSettings={() => setSheet("settings")}
-        onHistory={() => setSheet("history")}
-        onExit={() => {
-          if (desktop && !locked.current)
-            void getCurrentWindow().close().catch(report);
-        }}
-      />
-      <main className="workspace">
-        <section className="workbench">
-          <ResizablePanelGroup
-            orientation="vertical"
-            defaultLayout={verticalLayout.defaultLayout}
-            onLayoutChanged={verticalLayout.onLayoutChanged}
-          >
-            <ResizablePanel id="rules" defaultSize="47%" minSize={180}>
-              <ResizablePanelGroup
-                id="rule-columns"
-                orientation="horizontal"
-                defaultLayout={sidebarLayout.defaultLayout}
-                onLayoutChanged={(layout, meta) => {
-                  horizontalLayout.onLayoutChanged(layout, meta);
-                  sidebarLayout.onLayoutChanged(layout, meta);
-                }}
-              >
-                <ResizablePanel
-                  id="library"
-                  defaultSize={200}
-                  minSize={180}
-                  maxSize={260}
-                  groupResizeBehavior="preserve-pixel-size"
+    <VariableCatalogProvider onError={report}>
+      <div className="app-shell">
+        <AppToolbar
+          busy={busy}
+          desktop={desktop}
+          executeDisabled={
+            !rules.some((rule) => rule.enabled) ||
+            !desktop ||
+            busy ||
+            pending ||
+            planKey !== previewKey ||
+            !plan?.changes ||
+            !!plan?.conflicts ||
+            !!recovery
+          }
+          undoDisabled={busy || !undoable}
+          removeDisabled={busy || !selected.size}
+          clearDisabled={busy || !entries.length}
+          onAdd={(directory) => void choose(directory)}
+          onExecute={() => void execute()}
+          onUndo={() => undoable && void undo(undoable.id)}
+          onRemove={() => {
+            setEntries((entries) =>
+              entries.filter((entry) => !selected.has(entry.id)),
+            );
+            setSelected(new Set());
+          }}
+          onClear={() => {
+            setEntries([]);
+            setSelected(new Set());
+          }}
+          onSettings={() => setSheet("settings")}
+          onHistory={() => setSheet("history")}
+          onExit={() => {
+            if (desktop && !locked.current)
+              void getCurrentWindow().close().catch(report);
+          }}
+        />
+        <main className="workspace">
+          <section className="workbench">
+            <ResizablePanelGroup
+              orientation="vertical"
+              defaultLayout={verticalLayout.defaultLayout}
+              onLayoutChanged={verticalLayout.onLayoutChanged}
+            >
+              <ResizablePanel id="rules" defaultSize="47%" minSize={180}>
+                <ResizablePanelGroup
+                  id="rule-columns"
+                  orientation="horizontal"
+                  defaultLayout={sidebarLayout.defaultLayout}
+                  onLayoutChanged={(layout, meta) => {
+                    horizontalLayout.onLayoutChanged(layout, meta);
+                    sidebarLayout.onLayoutChanged(layout, meta);
+                  }}
                 >
-                  <div className="panel library-panel">
-                    <div className="panel-heading">
-                      <h2>{t("library")}</h2>
+                  <ResizablePanel
+                    id="library"
+                    defaultSize={200}
+                    minSize={180}
+                    maxSize={260}
+                    groupResizeBehavior="preserve-pixel-size"
+                  >
+                    <div className="panel library-panel">
+                      <div className="panel-heading">
+                        <h2>{t("library")}</h2>
+                      </div>
+                      <div className="rule-library">
+                        {ruleTypes.map((type) => {
+                          const Icon = icons[type];
+                          return (
+                            <button
+                              className="library-item"
+                              key={type}
+                              title={t(type)}
+                              onClick={() => add(type)}
+                              disabled={busy}
+                            >
+                              <span className="library-icon">
+                                <Icon />
+                              </span>
+                              <span className="library-label">
+                                <strong>{t(type)}</strong>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="rule-library">
-                      {ruleTypes.map((type) => {
-                        const Icon = icons[type];
-                        return (
-                          <button
-                            className="library-item"
-                            key={type}
-                            title={t(type)}
-                            onClick={() => add(type)}
+                  </ResizablePanel>
+                  <ResizableHandle />
+                  <ResizablePanel
+                    id="sequence"
+                    defaultSize={300}
+                    minSize={240}
+                    maxSize={440}
+                    groupResizeBehavior="preserve-pixel-size"
+                  >
+                    <div className="panel execution-panel">
+                      <div className="panel-heading">
+                        <h2>{t("sequence")}</h2>
+                        <Badge variant="secondary">{rules.length}</Badge>
+                      </div>
+                      {!!rules.length && (
+                        <p className="sequence-hint">{t("rulesHint")}</p>
+                      )}
+                      <div className="panel-scroll">
+                        {rules.length ? (
+                          <RuleList
+                            rules={rules}
+                            active={active}
                             disabled={busy}
-                          >
-                            <span className="library-icon">
-                              <Icon />
-                            </span>
-                            <span className="library-label">
-                              <strong>{t(type)}</strong>
-                            </span>
-                          </button>
-                        );
-                      })}
+                            onSelect={chooseRule}
+                            onChange={setRules}
+                          />
+                        ) : (
+                          <Empty className="rule-empty">
+                            <EmptyHeader>
+                              <EmptyDescription>
+                                {t("noRules")}
+                              </EmptyDescription>
+                            </EmptyHeader>
+                          </Empty>
+                        )}
+                      </div>
+                    </div>
+                  </ResizablePanel>
+                  <ResizableHandle />
+                  <ResizablePanel id="configuration" minSize={320}>
+                    <div className="panel config-panel">
+                      <div className="panel-heading">
+                        <h2>
+                          {activeRule
+                            ? t(activeRule.config.type)
+                            : t("configuration")}
+                        </h2>
+                      </div>
+                      <div className="panel-scroll">
+                        {config ?? (
+                          <Empty className="rule-empty">
+                            <EmptyHeader>
+                              <EmptyDescription>
+                                {t("chooseRule")}
+                              </EmptyDescription>
+                            </EmptyHeader>
+                          </Empty>
+                        )}
+                      </div>
+                    </div>
+                  </ResizablePanel>
+                </ResizablePanelGroup>
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+              <ResizablePanel id="files" defaultSize="53%" minSize={170}>
+                <div className="files-panel">
+                  <div className="files-heading">
+                    <div className="file-heading-main">
+                      <div className="file-heading-title">
+                        <h2>{t("files")}</h2>
+                        <Badge variant="secondary">{entries.length}</Badge>
+                        <span className="preview-label">
+                          {pending ? <LoaderCircle /> : <Check />}
+                          {t(pending ? "refreshing" : "preview")}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </ResizablePanel>
-                <ResizableHandle />
-                <ResizablePanel
-                  id="sequence"
-                  defaultSize={300}
-                  minSize={240}
-                  maxSize={440}
-                  groupResizeBehavior="preserve-pixel-size"
-                >
-                  <div className="panel execution-panel">
-                    <div className="panel-heading">
-                      <h2>{t("sequence")}</h2>
-                      <Badge variant="secondary">{rules.length}</Badge>
-                    </div>
-                    {!!rules.length && (
-                      <p className="sequence-hint">{t("rulesHint")}</p>
-                    )}
-                    <div className="panel-scroll">
-                      {rules.length ? (
-                        <RuleList
-                          rules={rules}
-                          active={active}
-                          disabled={busy}
-                          onSelect={chooseRule}
-                          onChange={setRules}
-                        />
-                      ) : (
-                        <Empty className="rule-empty">
-                          <EmptyHeader>
-                            <EmptyDescription>{t("noRules")}</EmptyDescription>
-                          </EmptyHeader>
-                        </Empty>
-                      )}
-                    </div>
-                  </div>
-                </ResizablePanel>
-                <ResizableHandle />
-                <ResizablePanel id="configuration" minSize={320}>
-                  <div className="panel config-panel">
-                    <div className="panel-heading">
-                      <h2>
-                        {activeRule
-                          ? t(activeRule.config.type)
-                          : t("configuration")}
-                      </h2>
-                    </div>
-                    <div className="panel-scroll">
-                      {config ?? (
-                        <Empty className="rule-empty">
-                          <EmptyHeader>
-                            <EmptyDescription>
-                              {t("chooseRule")}
-                            </EmptyDescription>
-                          </EmptyHeader>
-                        </Empty>
-                      )}
-                    </div>
-                  </div>
-                </ResizablePanel>
-              </ResizablePanelGroup>
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-            <ResizablePanel id="files" defaultSize="53%" minSize={170}>
-              <div className="files-panel">
-                <div className="files-heading">
-                  <div className="file-heading-main">
-                    <div className="file-heading-title">
-                      <h2>{t("files")}</h2>
-                      <Badge variant="secondary">{entries.length}</Badge>
-                      <span className="preview-label">
-                        {pending ? <LoaderCircle /> : <Check />}
-                        {t(pending ? "refreshing" : "preview")}
-                      </span>
-                    </div>
-                  </div>
+                  {rows.length ? (
+                    <FileTable
+                      rows={rows}
+                      selected={selected}
+                      onSelected={setSelected}
+                      disabled={busy}
+                      sorting={sorting}
+                      onSorting={setSorting}
+                    />
+                  ) : (
+                    <Empty>
+                      <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                          <FolderOpen />
+                        </EmptyMedia>
+                        <EmptyTitle>
+                          {t(entries.length ? "noMatches" : "noFiles")}
+                        </EmptyTitle>
+                        <EmptyDescription>{t("dropHint")}</EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                  )}
                 </div>
-                {rows.length ? (
-                  <FileTable
-                    rows={rows}
-                    selected={selected}
-                    onSelected={setSelected}
-                    disabled={busy}
-                    sorting={sorting}
-                    onSorting={setSorting}
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </section>
+          <StatusBar
+            total={entries.length}
+            changes={plan?.changes ?? 0}
+            conflicts={plan?.conflicts ?? 0}
+            busy={busy}
+            pending={pending}
+            desktop={desktop}
+            message={message}
+            progress={progress}
+            error={
+              error
+                ? {
+                    message: detailLabel,
+                    detail: error.code === "invalidRule" ? "" : error.detail,
+                  }
+                : null
+            }
+            recovery={!!recovery}
+            onRecover={() => recovery && void undo(recovery.id)}
+          />
+        </main>
+        <Sheet
+          open={sheet !== null}
+          onOpenChange={(value) => !value && setSheet(null)}
+        >
+          <SheetContent className="app-sheet" showCloseButton={false}>
+            <SheetHeader>
+              <div className="flex items-center justify-between">
+                <SheetTitle>
+                  {t(sheet === "settings" ? "settings" : "history")}
+                </SheetTitle>
+                <SheetClose render={<Button variant="ghost" size="sm" />}>
+                  {t("close")}
+                </SheetClose>
+              </div>
+              <SheetDescription className="sr-only">
+                {t(sheet === "settings" ? "appearance" : "history")}
+              </SheetDescription>
+            </SheetHeader>
+            <div className="sheet-scroll">
+              {sheet === "settings" && (
+                <FieldGroup>
+                  <Choice
+                    label={t("theme")}
+                    value={theme}
+                    values={["system", "light", "dark"].map((v) => [v, t(v)])}
+                    onChange={setTheme}
                   />
+                  <Choice
+                    label={t("language")}
+                    value={i18n.language.startsWith("zh") ? "zh-CN" : "en"}
+                    values={[
+                      ["zh-CN", "简体中文"],
+                      ["en", "English"],
+                    ]}
+                    onChange={(v) => void i18n.changeLanguage(v)}
+                  />
+                  <h3 className="settings-heading">{t("importOptions")}</h3>
+                  <Flag
+                    label={t("contents")}
+                    value={contents}
+                    disabled={busy}
+                    onChange={setContents}
+                  />
+                  <Flag
+                    label={t("recursive")}
+                    value={recursive}
+                    disabled={busy || !contents}
+                    onChange={setRecursive}
+                  />
+                  <p className="help-text">{t("importHint")}</p>
+                  <VariablesReference />
+                </FieldGroup>
+              )}
+              {sheet === "history" &&
+                (history.length ? (
+                  <div className="history-list">
+                    {history.map((h) => (
+                      <article className="history-item" key={h.id}>
+                        <div className="flex items-center justify-between">
+                          <Badge
+                            variant={
+                              h.status === "recoveryNeeded"
+                                ? "destructive"
+                                : "secondary"
+                            }
+                          >
+                            {t(
+                              h.status === "completed"
+                                ? "historyCompleted"
+                                : h.status,
+                            )}
+                          </Badge>
+                          <span>{h.count}</span>
+                        </div>
+                        <time>
+                          {new Date(h.created * 1000).toLocaleString(
+                            i18n.language,
+                          )}
+                        </time>
+                        {h.detail && (
+                          <details>
+                            <summary>{t("showDetails")}</summary>
+                            <pre>{h.detail}</pre>
+                          </details>
+                        )}
+                        {!!h.pendingPaths?.length && (
+                          <details open>
+                            <summary>{t("pendingObjects")}</summary>
+                            <ul>
+                              {h.pendingPaths.map((path) => (
+                                <li key={path} className="break-all">
+                                  {path}
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        )}
+                        {h.id === undoable?.id && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={busy}
+                            onClick={() => void undo(h.id)}
+                          >
+                            {t(h.status === "completed" ? "undo" : "recover")}
+                          </Button>
+                        )}
+                      </article>
+                    ))}
+                  </div>
                 ) : (
                   <Empty>
                     <EmptyHeader>
-                      <EmptyMedia variant="icon">
-                        <FolderOpen />
-                      </EmptyMedia>
-                      <EmptyTitle>
-                        {t(entries.length ? "noMatches" : "noFiles")}
-                      </EmptyTitle>
-                      <EmptyDescription>{t("dropHint")}</EmptyDescription>
+                      <EmptyTitle>{t("noHistory")}</EmptyTitle>
                     </EmptyHeader>
                   </Empty>
-                )}
-              </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </section>
-        <StatusBar
-          total={entries.length}
-          changes={plan?.changes ?? 0}
-          conflicts={plan?.conflicts ?? 0}
-          busy={busy}
-          pending={pending}
-          desktop={desktop}
-          message={message}
-          progress={progress}
-          error={
-            error
-              ? {
-                  message: detailLabel,
-                  detail: error.code === "invalidRule" ? "" : error.detail,
-                }
-              : null
-          }
-          recovery={!!recovery}
-          onRecover={() => recovery && void undo(recovery.id)}
-        />
-      </main>
-      <Sheet
-        open={sheet !== null}
-        onOpenChange={(value) => !value && setSheet(null)}
-      >
-        <SheetContent className="app-sheet" showCloseButton={false}>
-          <SheetHeader>
-            <div className="flex items-center justify-between">
-              <SheetTitle>
-                {t(sheet === "settings" ? "settings" : "history")}
-              </SheetTitle>
-              <SheetClose render={<Button variant="ghost" size="sm" />}>
-                {t("close")}
-              </SheetClose>
+                ))}
             </div>
-            <SheetDescription className="sr-only">
-              {t(sheet === "settings" ? "appearance" : "history")}
-            </SheetDescription>
-          </SheetHeader>
-          <div className="sheet-scroll">
-            {sheet === "settings" && (
-              <FieldGroup>
-                <Choice
-                  label={t("theme")}
-                  value={theme}
-                  values={["system", "light", "dark"].map((v) => [v, t(v)])}
-                  onChange={setTheme}
-                />
-                <Choice
-                  label={t("language")}
-                  value={i18n.language.startsWith("zh") ? "zh-CN" : "en"}
-                  values={[
-                    ["zh-CN", "简体中文"],
-                    ["en", "English"],
-                  ]}
-                  onChange={(v) => void i18n.changeLanguage(v)}
-                />
-                <h3 className="settings-heading">{t("importOptions")}</h3>
-                <Flag
-                  label={t("contents")}
-                  value={contents}
-                  disabled={busy}
-                  onChange={setContents}
-                />
-                <Flag
-                  label={t("recursive")}
-                  value={recursive}
-                  disabled={busy || !contents}
-                  onChange={setRecursive}
-                />
-                <p className="help-text">{t("importHint")}</p>
-              </FieldGroup>
-            )}
-            {sheet === "history" &&
-              (history.length ? (
-                <div className="history-list">
-                  {history.map((h) => (
-                    <article className="history-item" key={h.id}>
-                      <div className="flex items-center justify-between">
-                        <Badge
-                          variant={
-                            h.status === "recoveryNeeded"
-                              ? "destructive"
-                              : "secondary"
-                          }
-                        >
-                          {t(
-                            h.status === "completed"
-                              ? "historyCompleted"
-                              : h.status,
-                          )}
-                        </Badge>
-                        <span>{h.count}</span>
-                      </div>
-                      <time>
-                        {new Date(h.created * 1000).toLocaleString(
-                          i18n.language,
-                        )}
-                      </time>
-                      {h.detail && (
-                        <details>
-                          <summary>{t("showDetails")}</summary>
-                          <pre>{h.detail}</pre>
-                        </details>
-                      )}
-                      {!!h.pendingPaths?.length && (
-                        <details open>
-                          <summary>{t("pendingObjects")}</summary>
-                          <ul>
-                            {h.pendingPaths.map((path) => (
-                              <li key={path} className="break-all">
-                                {path}
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
-                      )}
-                      {h.id === undoable?.id && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={busy}
-                          onClick={() => void undo(h.id)}
-                        >
-                          {t(h.status === "completed" ? "undo" : "recover")}
-                        </Button>
-                      )}
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <Empty>
-                  <EmptyHeader>
-                    <EmptyTitle>{t("noHistory")}</EmptyTitle>
-                  </EmptyHeader>
-                </Empty>
-              ))}
-          </div>
-        </SheetContent>
-      </Sheet>
-    </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </VariableCatalogProvider>
   );
 }

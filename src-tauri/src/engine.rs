@@ -1,3 +1,4 @@
+use crate::template::{self, FileTimes, Template, TemplateSnapshot};
 use crate::{model::*, platform, rules, storage::Journal};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -120,6 +121,12 @@ impl Engine {
         rule_list: Vec<RenameRule>,
         revision: u64,
     ) -> Result<RenamePlan> {
+        self.plan = None;
+        let templates = template::compile(&rule_list)?;
+        let needs_created = templates.iter().flatten().any(Template::needs_created);
+        let needs_modified = templates.iter().flatten().any(Template::needs_modified);
+        let mut snapshot = TemplateSnapshot::default();
+        let chosen: HashSet<&str> = selected.iter().map(String::as_str).collect();
         let entries = ids
             .iter()
             .map(|id| {
@@ -131,16 +138,39 @@ impl Engine {
                 if entry.error.is_none() {
                     platform::check_ancestors(Path::new(&entry.path))?;
                     entry.fingerprint = Some(fingerprint(Path::new(&entry.path))?);
+                    if chosen.contains(entry.id.as_str()) && (needs_created || needs_modified) {
+                        let metadata = std::fs::symlink_metadata(&entry.path)?;
+                        if metadata.file_type().is_symlink() {
+                            return Err(AppError::new("stalePlan", &entry.path));
+                        }
+                        let local =
+                            |time| chrono::DateTime::<chrono::Local>::from(time).fixed_offset();
+                        snapshot.files.insert(
+                            entry.id.clone(),
+                            FileTimes {
+                                created: needs_created
+                                    .then(|| metadata.created().ok().map(local))
+                                    .flatten(),
+                                modified: needs_modified
+                                    .then(|| metadata.modified().ok().map(local))
+                                    .flatten(),
+                            },
+                        );
+                    }
                 }
                 Ok(entry)
             })
             .collect::<Result<Vec<_>>>()?;
-        let preview = calculate(&entries, &selected, &rule_list, revision)?;
+        let preview = calculate_compiled(
+            &entries, &selected, &rule_list, revision, &templates, &snapshot,
+        )?;
         self.plan = Some(StoredPlan {
             preview: preview.clone(),
             entries,
             rules: rule_list,
             selected,
+            templates,
+            snapshot,
         });
         Ok(preview)
     }
@@ -169,11 +199,13 @@ impl Engine {
                 }
             }
         }
-        let rechecked = calculate(
+        let rechecked = calculate_compiled(
             &plan.entries,
             &plan.selected,
             &plan.rules,
             plan.preview.revision,
+            &plan.templates,
+            &plan.snapshot,
         )?;
         if rechecked.conflicts > 0 {
             return Err(AppError::new("conflicts", ""));
@@ -406,9 +438,34 @@ pub fn calculate(
     rule_list: &[RenameRule],
     revision: u64,
 ) -> Result<RenamePlan> {
-    for rule in rule_list.iter().filter(|r| r.enabled) {
-        rules::validate(rule)?;
-    }
+    calculate_with_context(
+        entries,
+        selected,
+        rule_list,
+        revision,
+        &TemplateSnapshot::default(),
+    )
+}
+
+pub fn calculate_with_context(
+    entries: &[FileEntry],
+    selected: &[String],
+    rule_list: &[RenameRule],
+    revision: u64,
+    snapshot: &TemplateSnapshot,
+) -> Result<RenamePlan> {
+    let templates = template::compile(rule_list)?;
+    calculate_compiled(entries, selected, rule_list, revision, &templates, snapshot)
+}
+
+fn calculate_compiled(
+    entries: &[FileEntry],
+    selected: &[String],
+    rule_list: &[RenameRule],
+    revision: u64,
+    templates: &[Option<Template>],
+    snapshot: &TemplateSnapshot,
+) -> Result<RenamePlan> {
     let chosen: HashSet<&str> = selected.iter().map(String::as_str).collect();
     let mut counters: HashMap<(String, String), usize> = HashMap::new();
     let mut names = HashMap::new();
@@ -416,8 +473,33 @@ pub fn calculate(
     for e in entries {
         let active = chosen.contains(e.id.as_str()) && e.error.is_none();
         let mut name = e.name.clone();
+        let mut variable_error = None;
         if active {
-            for rule in rule_list.iter().filter(|r| r.enabled) {
+            for (rule, template) in rule_list.iter().zip(templates).filter(|(r, _)| r.enabled) {
+                // Resolve current-name variables before splitting the configured scope.
+                let has_scope = rule.scope != "extension"
+                    || (e.kind != "directory" && name.rfind('.').is_some_and(|i| i > 0));
+                let expansion = if has_scope {
+                    match template
+                        .as_ref()
+                        .map(|template| {
+                            template.expand(&template::Context {
+                                entry: e,
+                                current_name: &name,
+                                snapshot,
+                            })
+                        })
+                        .transpose()
+                    {
+                        Ok(expansion) => expansion,
+                        Err(error) => {
+                            variable_error = Some(error);
+                            break;
+                        }
+                    }
+                } else {
+                    None
+                };
                 let group = if matches!(
                     &rule.config,
                     RuleConfig::Number {
@@ -434,11 +516,23 @@ pub fn calculate(
                     String::new()
                 };
                 let counter = counters.entry((rule.id.clone(), group)).or_default();
-                name = rules::apply_scoped(&name, e.kind == "directory", rule, *counter)?;
+                name = rules::apply_scoped_expanded(
+                    &name,
+                    e.kind == "directory",
+                    rule,
+                    *counter,
+                    expansion.as_ref(),
+                )?;
                 *counter += 1;
             }
         }
-        let error = if active && !platform::valid_name(&name) {
+        let error_params = variable_error
+            .as_ref()
+            .and_then(|error| error.params.clone());
+        let error = if let Some(error) = variable_error {
+            name = e.name.clone();
+            Some(error.code)
+        } else if active && !platform::valid_name(&name) {
             Some("invalidName".into())
         } else {
             e.error.clone()
@@ -456,6 +550,7 @@ pub fn calculate(
             selected: active,
             status: "unchanged".into(),
             error,
+            error_params,
         });
     }
     let changing: HashMap<PathBuf, &FileEntry> = entries

@@ -5,13 +5,25 @@ use std::path::Path;
 pub struct AppError {
     pub code: String,
     pub detail: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub params: Option<std::collections::HashMap<String, String>>,
 }
 impl AppError {
     pub fn new(code: &str, detail: impl ToString) -> Self {
         Self {
             code: code.into(),
             detail: detail.to_string(),
+            params: None,
         }
+    }
+    pub fn with_params<const N: usize>(mut self, params: [(&str, &str); N]) -> Self {
+        self.params = Some(
+            params
+                .into_iter()
+                .map(|(key, value)| (key.into(), value.into()))
+                .collect(),
+        );
+        self
     }
 }
 impl From<std::io::Error> for AppError {
@@ -182,6 +194,8 @@ pub struct PreviewRow {
     pub selected: bool,
     pub status: String,
     pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_params: Option<std::collections::HashMap<String, String>>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -198,6 +212,8 @@ pub struct StoredPlan {
     pub entries: Vec<FileEntry>,
     pub rules: Vec<RenameRule>,
     pub selected: Vec<String>,
+    pub templates: Vec<Option<crate::template::Template>>,
+    pub snapshot: crate::template::TemplateSnapshot,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

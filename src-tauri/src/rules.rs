@@ -187,6 +187,14 @@ fn insert(s: &str, text: &str, p: &Position) -> String {
     }
 }
 pub fn apply(s: &str, config: &RuleConfig, ordinal: usize) -> Result<String> {
+    apply_expanded(s, config, ordinal, None)
+}
+fn apply_expanded(
+    s: &str,
+    config: &RuleConfig,
+    ordinal: usize,
+    expansion: Option<&crate::template::ExpandedTemplate>,
+) -> Result<String> {
     Ok(match config {
         RuleConfig::Add {
             text,
@@ -194,6 +202,8 @@ pub fn apply(s: &str, config: &RuleConfig, ordinal: usize) -> Result<String> {
             width,
             position,
         } => {
+            let resolved = expansion.map(|template| template.render(None));
+            let text = resolved.as_ref().unwrap_or(text);
             let text = if *pad {
                 let missing = width.saturating_sub(graphemes(s).len());
                 graphemes(text)
@@ -231,7 +241,9 @@ pub fn apply(s: &str, config: &RuleConfig, ordinal: usize) -> Result<String> {
                     continue;
                 }
                 out.push_str(&s[end..m.start()]);
-                if *regex {
+                if let Some(expansion) = expansion {
+                    out.push_str(&expansion.render(if *regex { Some(&caps) } else { None }));
+                } else if *regex {
                     caps.expand(replacement, &mut out);
                 } else {
                     out.push_str(replacement);
@@ -384,21 +396,30 @@ pub fn apply_scoped(
     rule: &RenameRule,
     ordinal: usize,
 ) -> Result<String> {
+    apply_scoped_expanded(name, directory, rule, ordinal, None)
+}
+pub fn apply_scoped_expanded(
+    name: &str,
+    directory: bool,
+    rule: &RenameRule,
+    ordinal: usize,
+    expansion: Option<&crate::template::ExpandedTemplate>,
+) -> Result<String> {
     if !rule.enabled || (directory && rule.scope == "extension") {
         return Ok(name.into());
     }
     if directory || rule.scope == "full" {
-        return apply(name, &rule.config, ordinal);
+        return apply_expanded(name, &rule.config, ordinal, expansion);
     }
     let split = name.rfind('.').filter(|&i| i > 0);
     match (rule.scope.as_str(), split) {
         ("stem", Some(i)) => Ok(format!(
             "{}{}",
-            apply(&name[..i], &rule.config, ordinal)?,
+            apply_expanded(&name[..i], &rule.config, ordinal, expansion)?,
             &name[i..]
         )),
         ("extension", Some(i)) => {
-            let ext = apply(&name[i + 1..], &rule.config, ordinal)?;
+            let ext = apply_expanded(&name[i + 1..], &rule.config, ordinal, expansion)?;
             Ok(format!(
                 "{}{}{}",
                 &name[..i],
@@ -407,6 +428,6 @@ pub fn apply_scoped(
             ))
         }
         ("extension", None) => Ok(name.into()),
-        _ => apply(name, &rule.config, ordinal),
+        _ => apply_expanded(name, &rule.config, ordinal, expansion),
     }
 }

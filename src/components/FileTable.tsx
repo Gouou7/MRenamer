@@ -133,9 +133,28 @@ export function FileTable({
               ? Check
               : Minus;
           return (
-            <Badge variant={r.error ? "destructive" : "secondary"}>
+            <Badge
+              variant={r.error ? "destructive" : "secondary"}
+              title={
+                r.error
+                  ? t(`errors.${r.error}`, {
+                      ...r.errorParams,
+                      reason: r.errorParams?.reason
+                        ? t(`variableReasons.${r.errorParams.reason}`)
+                        : "",
+                    })
+                  : undefined
+              }
+            >
               <Icon data-icon="inline-start" />
-              {r.error ? t(`errors.${r.error}`) : t(r.status)}
+              {r.error
+                ? t(`errors.${r.error}`, {
+                    ...r.errorParams,
+                    reason: r.errorParams?.reason
+                      ? t(`variableReasons.${r.errorParams.reason}`)
+                      : "",
+                  })
+                : t(r.status)}
             </Badge>
           );
         },

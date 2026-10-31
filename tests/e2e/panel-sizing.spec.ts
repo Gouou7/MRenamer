@@ -6,9 +6,11 @@ async function expectWidths(page: Page) {
     ["sequence", 240, 440],
     ["configuration", 320, Infinity],
   ] as const) {
-    const width = (await page.locator(`#${id}`).boundingBox())!.width;
-    expect(width, id).toBeGreaterThanOrEqual(min - 1);
-    expect(width, id).toBeLessThanOrEqual(max + 1);
+    // Panel constraints are reapplied asynchronously by ResizeObserver after viewport changes.
+    const width = async () =>
+      (await page.locator(`#${id}`).boundingBox())!.width;
+    await expect.poll(width, id).toBeGreaterThanOrEqual(min - 1);
+    await expect.poll(width, id).toBeLessThanOrEqual(max + 1);
   }
 }
 

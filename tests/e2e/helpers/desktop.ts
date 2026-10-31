@@ -1,17 +1,21 @@
 import type { Page } from "@playwright/test";
+import variables from "../../../src/lib/variables.json" with { type: "json" };
 export async function addFiles(page: Page) {
   await page.getByRole("menuitem", { name: "文件", exact: true }).click();
   await page.getByRole("menuitem", { name: "添加文件", exact: true }).click();
 }
 export async function mockDesktop(page: Page, count: number) {
   await page.addInitScript(
-    ({ count }) => {
+    ({ count, variables }) => {
       const win = window as unknown as Record<string, any>;
       win.isTauri = true;
       win.__previewCalls = [];
       win.__dialogCalls = [];
       win.__closeCalls = 0;
       win.__accentColor = null;
+      win.__clipboardText = "";
+      win.__clipboardCalls = [];
+      win.__previewRequests = [];
       const entries = Array.from({ length: count }, (_, i) => ({
         id: `file-${i}`,
         path: `/fixtures/image${i}.png`,
@@ -30,6 +34,18 @@ export async function mockDesktop(page: Page, count: number) {
         transformCallback: () => ++callback,
         unregisterCallback: () => {},
         invoke: async (command: string, args: any) => {
+          if (command === "list_variables") return variables;
+          if (command.startsWith("plugin:clipboard-manager|")) {
+            win.__clipboardCalls.push(command);
+            if (win.__clipboardError) throw new Error("Clipboard unavailable");
+            if (win.__clipboardDelay)
+              await new Promise((resolve) =>
+                setTimeout(resolve, win.__clipboardDelay),
+              );
+            if (command.endsWith("read_text")) return win.__clipboardText;
+            win.__clipboardText = args.text;
+            return null;
+          }
           if (command === "system_accent_color") {
             if (win.__accentUnavailable) throw new Error("Color unavailable");
             return win.__accentColor;
@@ -47,6 +63,7 @@ export async function mockDesktop(page: Page, count: number) {
             return null;
           }
           if (command === "preview_rename") {
+            win.__previewRequests.push(args);
             if (win.__forcedPreviewError) throw win.__forcedPreviewError;
             const start = args.rules.find(
               (r: any) => r.config.type === "number",
@@ -80,6 +97,6 @@ export async function mockDesktop(page: Page, count: number) {
         },
       };
     },
-    { count },
+    { count, variables },
   );
 }

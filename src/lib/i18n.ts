@@ -1,6 +1,8 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
+import { variableZh, variableEn } from "./variable-i18n";
 const zh = {
+  ...variableZh,
   app: "MRenamer",
   mainMenu: "主菜单",
   fileMenu: "文件",
@@ -172,6 +174,9 @@ const zh = {
   historyCompleted: "已完成",
   pendingObjects: "待恢复对象",
   errors: {
+    templateSyntax: "变量格式无效 请使用<Date>，字面量尖括号使用<<和>>",
+    unknownVariable: "未知变量<{{variable}}>",
+    variableUnavailable: "变量<{{variable}}>不可用 {{reason}}",
     io: "无法访问文件",
     database: "无法读取操作记录",
     invalidRule: "规则配置无效",
@@ -198,6 +203,7 @@ const zh = {
   },
 };
 const en = {
+  ...variableEn,
   app: "MRenamer",
   mainMenu: "Main menu",
   fileMenu: "File",
@@ -372,6 +378,10 @@ const en = {
   historyCompleted: "Completed",
   pendingObjects: "Objects awaiting recovery",
   errors: {
+    templateSyntax:
+      "Invalid variable syntax Use <Date>, or << and >> for literal brackets",
+    unknownVariable: "Unknown variable <{{variable}}>",
+    variableUnavailable: "Variable <{{variable}}> is unavailable {{reason}}",
     io: "Cannot access the file",
     database: "Cannot read operation history",
     invalidRule: "Invalid rule configuration",

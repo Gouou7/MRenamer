@@ -80,6 +80,11 @@
     -webkit-user-select: text;
     user-select: text;
   }
+  .variables-reference,
+  .variables-reference * {
+    -webkit-user-select: text;
+    user-select: text;
+  }
   button,
   input {
     font-family: inherit;
@@ -600,6 +605,42 @@
   font-size: 12px;
 }
 .workbench [data-slot="field-description"] {
+  font-size: 11px;
+}
+.variables-reference {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.variable-definitions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+.variable-definitions dt {
+  font-weight: 500;
+}
+.variable-definitions dd {
+  margin: 3px 0 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.variable-definitions code {
+  margin-right: 6px;
+}
+.variable-definitions dd span {
+  display: block;
+}
+.variable-menu {
+  min-width: 260px;
+}
+.variable-menu [data-slot="context-menu-item"] {
+  gap: 16px;
+}
+.variable-menu code {
+  color: var(--muted-foreground);
   font-size: 11px;
 }
 @media (max-width: 1099px) {

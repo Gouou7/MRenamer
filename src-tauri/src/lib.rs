@@ -3,6 +3,7 @@ pub mod model;
 pub mod platform;
 pub mod rules;
 pub mod storage;
+pub mod template;
 
 #[cfg(feature = "desktop")]
 mod desktop {
@@ -10,6 +11,10 @@ mod desktop {
     use std::sync::{Arc, Mutex};
     use tauri::{Emitter, Manager};
     struct State(Arc<Mutex<Engine>>);
+    #[tauri::command]
+    fn list_variables() -> Vec<crate::template::VariableDefinition> {
+        crate::template::variables().to_vec()
+    }
     #[tauri::command]
     fn system_accent_color() -> Option<[u8; 3]> {
         #[cfg(windows)]
@@ -126,6 +131,7 @@ mod desktop {
                 }
             }))
             .plugin(tauri_plugin_dialog::init())
+            .plugin(tauri_plugin_clipboard_manager::init())
             .plugin(
                 tauri_plugin_window_state::Builder::default()
                     .with_state_flags(
@@ -145,6 +151,7 @@ mod desktop {
             })
             .invoke_handler(tauri::generate_handler![
                 system_accent_color,
+                list_variables,
                 scan_entries,
                 preview_rename,
                 execute_rename,

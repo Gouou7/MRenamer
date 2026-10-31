@@ -1,0 +1,163 @@
+[
+  {
+    "name": "Date",
+    "category": "date",
+    "labelKey": "variables.Date.label",
+    "descriptionKey": "variables.Date.description",
+    "example": "2000-01-01"
+  },
+  {
+    "name": "Time",
+    "category": "date",
+    "labelKey": "variables.Time.label",
+    "descriptionKey": "variables.Time.description",
+    "example": "00-00-00"
+  },
+  {
+    "name": "DateTime",
+    "category": "date",
+    "labelKey": "variables.DateTime.label",
+    "descriptionKey": "variables.DateTime.description",
+    "example": "2000-01-01_00-00-00"
+  },
+  {
+    "name": "Year",
+    "category": "date",
+    "labelKey": "variables.Year.label",
+    "descriptionKey": "variables.Year.description",
+    "example": "2000"
+  },
+  {
+    "name": "Month",
+    "category": "date",
+    "labelKey": "variables.Month.label",
+    "descriptionKey": "variables.Month.description",
+    "example": "01"
+  },
+  {
+    "name": "Day",
+    "category": "date",
+    "labelKey": "variables.Day.label",
+    "descriptionKey": "variables.Day.description",
+    "example": "01"
+  },
+  {
+    "name": "Name",
+    "category": "name",
+    "labelKey": "variables.Name.label",
+    "descriptionKey": "variables.Name.description",
+    "example": "report.tar.gz"
+  },
+  {
+    "name": "Stem",
+    "category": "name",
+    "labelKey": "variables.Stem.label",
+    "descriptionKey": "variables.Stem.description",
+    "example": "report.tar"
+  },
+  {
+    "name": "Ext",
+    "category": "name",
+    "labelKey": "variables.Ext.label",
+    "descriptionKey": "variables.Ext.description",
+    "example": "gz"
+  },
+  {
+    "name": "CName",
+    "category": "name",
+    "labelKey": "variables.CName.label",
+    "descriptionKey": "variables.CName.description",
+    "example": "REPORT.tar.gz"
+  },
+  {
+    "name": "CStem",
+    "category": "name",
+    "labelKey": "variables.CStem.label",
+    "descriptionKey": "variables.CStem.description",
+    "example": "REPORT.tar"
+  },
+  {
+    "name": "CExt",
+    "category": "name",
+    "labelKey": "variables.CExt.label",
+    "descriptionKey": "variables.CExt.description",
+    "example": "gz"
+  },
+  {
+    "name": "ParentDir",
+    "category": "parent",
+    "labelKey": "variables.ParentDir.label",
+    "descriptionKey": "variables.ParentDir.description",
+    "example": "photos"
+  },
+  {
+    "name": "ParentDir2",
+    "category": "parent",
+    "labelKey": "variables.ParentDir2.label",
+    "descriptionKey": "variables.ParentDir2.description",
+    "example": "projects"
+  },
+  {
+    "name": "ParentDir3",
+    "category": "parent",
+    "labelKey": "variables.ParentDir3.label",
+    "descriptionKey": "variables.ParentDir3.description",
+    "example": "archive"
+  },
+  {
+    "name": "ParentDir4",
+    "category": "parent",
+    "labelKey": "variables.ParentDir4.label",
+    "descriptionKey": "variables.ParentDir4.description",
+    "example": "work"
+  },
+  {
+    "name": "ParentDir5",
+    "category": "parent",
+    "labelKey": "variables.ParentDir5.label",
+    "descriptionKey": "variables.ParentDir5.description",
+    "example": "data"
+  },
+  {
+    "name": "CreatedDate",
+    "category": "fileTime",
+    "labelKey": "variables.CreatedDate.label",
+    "descriptionKey": "variables.CreatedDate.description",
+    "example": "2000-01-01"
+  },
+  {
+    "name": "CreatedTime",
+    "category": "fileTime",
+    "labelKey": "variables.CreatedTime.label",
+    "descriptionKey": "variables.CreatedTime.description",
+    "example": "00-00-00"
+  },
+  {
+    "name": "CreatedDateTime",
+    "category": "fileTime",
+    "labelKey": "variables.CreatedDateTime.label",
+    "descriptionKey": "variables.CreatedDateTime.description",
+    "example": "2000-01-01_00-00-00"
+  },
+  {
+    "name": "ModifiedDate",
+    "category": "fileTime",
+    "labelKey": "variables.ModifiedDate.label",
+    "descriptionKey": "variables.ModifiedDate.description",
+    "example": "2000-01-01"
+  },
+  {
+    "name": "ModifiedTime",
+    "category": "fileTime",
+    "labelKey": "variables.ModifiedTime.label",
+    "descriptionKey": "variables.ModifiedTime.description",
+    "example": "00-00-00"
+  },
+  {
+    "name": "ModifiedDateTime",
+    "category": "fileTime",
+    "labelKey": "variables.ModifiedDateTime.label",
+    "descriptionKey": "variables.ModifiedDateTime.description",
+    "example": "2000-01-01_00-00-00"
+  }
+]

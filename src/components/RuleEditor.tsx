@@ -19,6 +19,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { TemplateField } from "@/components/TemplateField";
 import type { Position, Selection, RenameRule, RuleConfig } from "@/lib/types";
 
 export function Choice({
@@ -319,9 +320,10 @@ export function RuleEditor({
               values={["insert", "pad"].map((v) => [v, t(v)])}
               onChange={(v) => patch({ pad: v === "pad" })}
             />
-            <TextField
+            <TemplateField
               label={t("text")}
               value={c.text}
+              disabled={disabled}
               onChange={(text) => patch({ text })}
             />
             {c.pad && (
@@ -346,9 +348,10 @@ export function RuleEditor({
               value={c.find}
               onChange={(find) => patch({ find })}
             />
-            <TextField
+            <TemplateField
               label={t("replacement")}
               value={c.replacement}
+              disabled={disabled}
               onChange={(replacement) => patch({ replacement })}
             />
             <Flag

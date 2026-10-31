@@ -76,6 +76,12 @@ export type PreviewRow = {
   selected: boolean;
   status: string;
   error: string | null;
+  errorParams?: Record<string, string>;
+};
+export type AppError = {
+  code: string;
+  detail: string;
+  params?: Record<string, string>;
 };
 export type RenamePlan = {
   id: string;
