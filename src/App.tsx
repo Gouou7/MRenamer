@@ -42,8 +42,7 @@ import {
   SheetClose,
 } from "@/components/ui/sheet";
 import { StatusBar } from "@/components/StatusBar";
-import { FieldGroup } from "@/components/ui/field";
-import { RuleEditor, Choice, Flag } from "@/components/RuleEditor";
+import { RuleEditor } from "@/components/RuleEditor";
 import { RuleList } from "@/components/RuleList";
 import { FileTable } from "@/components/FileTable";
 import {
@@ -61,7 +60,8 @@ import { orderEntries } from "@/lib/order";
 import { useSidebarLayout } from "@/lib/use-sidebar-layout";
 import { useSystemAccent } from "@/lib/use-system-accent";
 import { VariableCatalogProvider } from "@/lib/variables";
-import { VariablesReference } from "@/components/VariablesReference";
+import { usePreferences } from "@/lib/preferences";
+import { openSettingsWindow } from "@/lib/settings-window";
 import type { AppError } from "@/lib/types";
 import "@/lib/i18n";
 
@@ -92,12 +92,7 @@ export default function App() {
   const [message, setMessage] = useState("");
   const [progress, setProgress] = useState<Progress | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [sheet, setSheet] = useState<"settings" | "history" | null>(null);
-  const [theme, setTheme] = useState(
-    () => localStorage.getItem("renamer.theme") || "system",
-  );
-  const [contents, setContents] = useState(false);
-  const [recursive, setRecursive] = useState(false);
+  const [sheet, setSheet] = useState<"history" | null>(null);
   const revision = useRef(0);
   const locked = useRef(false);
   const loadRef = useRef<(paths: string[]) => Promise<void>>(async () => {});
@@ -144,21 +139,12 @@ export default function App() {
   const refreshHistory = useCallback(async () => {
     if (desktop) setHistory(await invoke<HistoryEntry[]>("list_history"));
   }, [desktop]);
+  const {
+    preferences: { contents, recursive },
+  } = usePreferences(report);
   useEffect(() => {
     void refreshHistory().catch(report);
   }, [refreshHistory, report]);
-  useEffect(() => {
-    localStorage.setItem("renamer.theme", theme);
-    const media = matchMedia("(prefers-color-scheme: dark)");
-    const update = () =>
-      document.documentElement.classList.toggle(
-        "dark",
-        theme === "dark" || (theme === "system" && media.matches),
-      );
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, [theme]);
   useEffect(() => {
     if (active && !rules.some((r) => r.id === active))
       setActive(rules[0]?.id ?? null);
@@ -419,7 +405,7 @@ export default function App() {
             setEntries([]);
             setSelected(new Set());
           }}
-          onSettings={() => setSheet("settings")}
+          onSettings={() => void openSettingsWindow().catch(report)}
           onHistory={() => setSheet("history")}
           onExit={() => {
             if (desktop && !locked.current)
@@ -608,52 +594,16 @@ export default function App() {
           <SheetContent className="app-sheet" showCloseButton={false}>
             <SheetHeader>
               <div className="flex items-center justify-between">
-                <SheetTitle>
-                  {t(sheet === "settings" ? "settings" : "history")}
-                </SheetTitle>
+                <SheetTitle>{t("history")}</SheetTitle>
                 <SheetClose render={<Button variant="ghost" size="sm" />}>
                   {t("close")}
                 </SheetClose>
               </div>
               <SheetDescription className="sr-only">
-                {t(sheet === "settings" ? "appearance" : "history")}
+                {t("history")}
               </SheetDescription>
             </SheetHeader>
             <div className="sheet-scroll">
-              {sheet === "settings" && (
-                <FieldGroup>
-                  <Choice
-                    label={t("theme")}
-                    value={theme}
-                    values={["system", "light", "dark"].map((v) => [v, t(v)])}
-                    onChange={setTheme}
-                  />
-                  <Choice
-                    label={t("language")}
-                    value={i18n.language.startsWith("zh") ? "zh-CN" : "en"}
-                    values={[
-                      ["zh-CN", "简体中文"],
-                      ["en", "English"],
-                    ]}
-                    onChange={(v) => void i18n.changeLanguage(v)}
-                  />
-                  <h3 className="settings-heading">{t("importOptions")}</h3>
-                  <Flag
-                    label={t("contents")}
-                    value={contents}
-                    disabled={busy}
-                    onChange={setContents}
-                  />
-                  <Flag
-                    label={t("recursive")}
-                    value={recursive}
-                    disabled={busy || !contents}
-                    onChange={setRecursive}
-                  />
-                  <p className="help-text">{t("importHint")}</p>
-                  <VariablesReference />
-                </FieldGroup>
-              )}
               {sheet === "history" &&
                 (history.length ? (
                   <div className="history-list">

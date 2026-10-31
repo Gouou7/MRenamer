@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
-import { mockDesktop, addFiles } from "./helpers/desktop";
+import { mockDesktop, addFiles, openSettings } from "./helpers/desktop";
 import variables from "../../src/lib/variables.json" with { type: "json" };
 
 async function selection(field: Locator, start: number, end = start) {
@@ -89,19 +89,16 @@ for (const language of ["zh-CN", "en"]) {
       expect(
         await page.evaluate(() => (window as any).__clipboardCalls),
       ).toEqual([]);
-      await page
-        .getByRole("menuitem", { name: zh ? "编辑" : "Edit", exact: true })
-        .click();
-      await page
-        .getByRole("menuitem", { name: zh ? "设置" : "Settings", exact: true })
-        .click();
-      const reference = page.locator(".variables-reference");
-      await expect(
-        reference.getByRole("heading", {
+      const settings = await openSettings(page, zh);
+      await settings.setViewportSize({ width: 760, height: 680 });
+      await settings
+        .getByRole("button", {
           name: zh ? "可用变量" : "Available variables",
           exact: true,
-        }),
-      ).toBeVisible();
+        })
+        .click();
+      const reference = settings.locator(".variables-reference");
+      await expect(reference).toBeVisible();
       await expect(reference.locator("dt")).toHaveCount(23);
       for (const variable of variables) {
         await expect(
@@ -115,12 +112,12 @@ for (const language of ["zh-CN", "en"]) {
         "user-select",
         "text",
       );
-      await page.screenshot({
+      await settings.screenshot({
         path: `.work/screenshots/variables-reference-${language}-${theme}.png`,
         fullPage: true,
       });
       expect(
-        await page.evaluate(
+        await settings.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth,
         ),
       ).toBeTruthy();

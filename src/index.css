@@ -570,10 +570,75 @@
 .sheet-scroll .editor-fields {
   padding: 0;
 }
-.settings-heading {
+.settings-window {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-width: 0;
+  background: var(--background);
   font-size: 12px;
+}
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 34px;
+  flex-shrink: 0;
+  padding: 0 12px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+.settings-header h1 {
+  font-size: 13px;
   font-weight: 600;
-  margin-top: 15px;
+}
+.settings-content {
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+.settings-content > [data-slot="field-group"] {
+  max-width: 640px;
+  margin-inline: auto;
+  gap: 16px;
+}
+.settings-content [data-slot="field-legend"],
+.settings-content h2,
+.settings-content h3 {
+  font-size: 13px;
+  font-weight: 600;
+}
+.settings-content [data-slot="field-group"],
+.settings-content [data-slot="field-set"] {
+  gap: 10px;
+}
+.settings-content > [data-slot="field-group"] {
+  gap: 16px;
+}
+.settings-content [data-slot="field-label"],
+.settings-surface [data-slot="select-trigger"],
+.settings-surface [data-slot="select-item"] {
+  font-size: 12px;
+}
+.settings-content [data-slot="field-description"] {
+  font-size: 11px;
+}
+.settings-variables-trigger {
+  justify-content: flex-start;
+  padding-inline: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.settings-variables-trigger[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+.settings-reference-content {
+  margin-top: 10px;
+}
+.settings-content .variable-definitions dd {
+  font-size: 11px;
 }
 .history-list {
   display: flex;

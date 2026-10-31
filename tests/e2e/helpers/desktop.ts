@@ -4,6 +4,18 @@ export async function addFiles(page: Page) {
   await page.getByRole("menuitem", { name: "文件", exact: true }).click();
   await page.getByRole("menuitem", { name: "添加文件", exact: true }).click();
 }
+export async function openSettings(page: Page, chinese = true) {
+  const popup = page.waitForEvent("popup");
+  await page
+    .getByRole("menuitem", { name: chinese ? "编辑" : "Edit", exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: chinese ? "设置" : "Settings", exact: true })
+    .click();
+  const settings = await popup;
+  await settings.waitForLoadState();
+  return settings;
+}
 export async function mockDesktop(page: Page, count: number) {
   await page.addInitScript(
     ({ count, variables }) => {
@@ -16,6 +28,8 @@ export async function mockDesktop(page: Page, count: number) {
       win.__clipboardText = "";
       win.__clipboardCalls = [];
       win.__previewRequests = [];
+      win.__settingsOpenCalls = 0;
+      win.__scanCalls = [];
       const entries = Array.from({ length: count }, (_, i) => ({
         id: `file-${i}`,
         path: `/fixtures/image${i}.png`,
@@ -28,12 +42,33 @@ export async function mockDesktop(page: Page, count: number) {
       win.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
       win.__TAURI_INTERNALS__ = {
         metadata: {
-          currentWindow: { label: "main" },
-          currentWebview: { label: "main" },
+          currentWindow: {
+            label: location.search.includes("view=settings")
+              ? "settings"
+              : "main",
+          },
+          currentWebview: {
+            label: location.search.includes("view=settings")
+              ? "settings"
+              : "main",
+          },
         },
         transformCallback: () => ++callback,
         unregisterCallback: () => {},
         invoke: async (command: string, args: any) => {
+          if (command === "open_settings") {
+            if (win.__settingsOpenError)
+              throw { code: "settingsOpen", detail: "fixture" };
+            win.__settingsOpenCalls++;
+            win.open(
+              "/?view=settings",
+              "mrenamer-settings",
+              "popup,width=820,height=680",
+            );
+            return null;
+          }
+          if (command === "plugin:window|set_title") return null;
+          if (command === "plugin:event|emit") return null;
           if (command === "list_variables") return variables;
           if (command.startsWith("plugin:clipboard-manager|")) {
             win.__clipboardCalls.push(command);
@@ -57,9 +92,13 @@ export async function mockDesktop(page: Page, count: number) {
             win.__dialogCalls.push(args.options);
             return ["/fixtures"];
           }
-          if (command === "scan_entries") return entries;
+          if (command === "scan_entries") {
+            win.__scanCalls.push(args);
+            return entries;
+          }
           if (command === "plugin:window|close") {
             win.__closeCalls++;
+            if (location.search.includes("view=settings")) win.close();
             return null;
           }
           if (command === "preview_rename") {

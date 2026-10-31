@@ -12,6 +12,37 @@ mod desktop {
     use tauri::{Emitter, Manager};
     struct State(Arc<Mutex<Engine>>);
     #[tauri::command]
+    async fn open_settings(app: tauri::AppHandle) -> Result<()> {
+        // Build on a worker thread to avoid the Windows synchronous-command WebView2 deadlock.
+        tauri::async_runtime::spawn_blocking(move || {
+            static CREATION: Mutex<()> = Mutex::new(());
+            let _guard = CREATION
+                .lock()
+                .map_err(|_| AppError::new("settingsOpen", "state"))?;
+            let window = if let Some(window) = app.get_webview_window("settings") {
+                window
+            } else {
+                let config = app
+                    .config()
+                    .app
+                    .windows
+                    .iter()
+                    .find(|window| window.label == "settings")
+                    .ok_or_else(|| AppError::new("settingsOpen", "configuration"))?;
+                tauri::WebviewWindowBuilder::from_config(&app, config)
+                    .and_then(|builder| builder.build())
+                    .map_err(|error| AppError::new("settingsOpen", error))?
+            };
+            window
+                .unminimize()
+                .and_then(|_| window.show())
+                .and_then(|_| window.set_focus())
+                .map_err(|error| AppError::new("settingsOpen", error))
+        })
+        .await
+        .map_err(|error| AppError::new("settingsOpen", error))?
+    }
+    #[tauri::command]
     fn list_variables() -> Vec<crate::template::VariableDefinition> {
         crate::template::variables().to_vec()
     }
@@ -149,9 +180,17 @@ mod desktop {
                 app.manage(State(Arc::new(Mutex::new(engine))));
                 Ok(())
             })
+            .on_window_event(|window, event| {
+                if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
+                    if let Some(settings) = window.app_handle().get_webview_window("settings") {
+                        let _ = settings.close();
+                    }
+                }
+            })
             .invoke_handler(tauri::generate_handler![
                 system_accent_color,
                 list_variables,
+                open_settings,
                 scan_entries,
                 preview_rename,
                 execute_rename,

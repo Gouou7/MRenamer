@@ -24,6 +24,7 @@ const zh = {
   undo: "撤销",
   execute: "执行重命名",
   settings: "设置",
+  futureImports: "应用于之后载入的对象",
   history: "操作记录",
   close: "关闭",
   library: "重命名操作",
@@ -174,6 +175,8 @@ const zh = {
   historyCompleted: "已完成",
   pendingObjects: "待恢复对象",
   errors: {
+    settingsOpen: "无法打开设置窗口",
+    settingsSave: "无法保存设置",
     templateSyntax: "变量格式无效 请使用<Date>，字面量尖括号使用<<和>>",
     unknownVariable: "未知变量<{{variable}}>",
     variableUnavailable: "变量<{{variable}}>不可用 {{reason}}",
@@ -226,6 +229,7 @@ const en = {
   undo: "Undo",
   execute: "Rename",
   settings: "Settings",
+  futureImports: "Applies to items imported from now on",
   history: "History",
   close: "Close",
   library: "Rename actions",
@@ -378,6 +382,8 @@ const en = {
   historyCompleted: "Completed",
   pendingObjects: "Objects awaiting recovery",
   errors: {
+    settingsOpen: "Cannot open the settings window",
+    settingsSave: "Cannot save settings",
     templateSyntax:
       "Invalid variable syntax Use <Date>, or << and >> for literal brackets",
     unknownVariable: "Unknown variable <{{variable}}>",

@@ -18,6 +18,18 @@
         "height": 940,
         "minWidth": 760,
         "minHeight": 620
+      },
+      {
+        "label": "settings",
+        "title": "设置 - MRenamer",
+        "url": "index.html?view=settings",
+        "create": false,
+        "visible": false,
+        "center": true,
+        "width": 820,
+        "height": 680,
+        "minWidth": 640,
+        "minHeight": 480
       }
     ],
     "security": {

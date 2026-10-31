@@ -7,17 +7,14 @@ export function VariablesReference() {
   return (
     <section
       className="variables-reference"
-      aria-labelledby="variables-heading"
+      aria-label={t("availableVariables")}
     >
-      <h3 id="variables-heading" className="settings-heading">
-        {t("availableVariables")}
-      </h3>
       <p className="help-text">{t("variablesHelp")}</p>
       {variableCategories.map((category) => (
         <section key={category} aria-labelledby={`variables-${category}`}>
-          <h4 id={`variables-${category}`}>
+          <h3 id={`variables-${category}`}>
             {t(`variableCategories.${category}`)}
-          </h4>
+          </h3>
           <dl className="variable-definitions">
             {variables
               .filter((variable) => variable.category === category)
