@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, History, LoaderCircle } from "lucide-react";
+import { Check, History, LoaderCircle } from "lucide-react";
 import { appVersion } from "@/lib/version";
 import { Button } from "@/components/ui/button";
+import { WindowTitlebar } from "@/components/WindowTitlebar";
 import {
   Menubar,
   MenubarMenu,
@@ -24,6 +25,8 @@ import {
 type Props = {
   busy: boolean;
   desktop: boolean;
+  modalOpen: boolean;
+  onError: (error: unknown) => void;
   executeDisabled: boolean;
   undoDisabled: boolean;
   removeDisabled: boolean;
@@ -43,7 +46,44 @@ export function AppToolbar(props: Props) {
   const [aboutOpen, setAboutOpen] = useState(false);
   return (
     <>
-      <header className="app-header">
+      <WindowTitlebar
+        className="app-header"
+        title="MRenamer"
+        blocked={props.modalOpen || aboutOpen}
+        closeDisabled={props.busy}
+        onClose={props.onExit}
+        onError={props.onError}
+        actions={
+          <div className="header-actions">
+            <Button
+              variant="default"
+              size="compact"
+              title={t("execute")}
+              disabled={props.executeDisabled}
+              onClick={props.onExecute}
+            >
+              {props.busy ? (
+                <LoaderCircle
+                  className="animate-spin"
+                  data-icon="inline-start"
+                />
+              ) : (
+                <Check data-icon="inline-start" />
+              )}
+              {t("execute")}
+            </Button>
+            <Button
+              variant="secondary"
+              size="compact"
+              onClick={props.onHistory}
+              data-history-entry
+            >
+              <History data-icon="inline-start" />
+              {t("history")}
+            </Button>
+          </div>
+        }
+      >
         <div className="header-left">
           <Menubar className="h-5 border-0 p-0" aria-label={t("mainMenu")}>
             <MenubarMenu>
@@ -75,7 +115,9 @@ export function AppToolbar(props: Props) {
               </MenubarContent>
             </MenubarMenu>
             <MenubarMenu>
-              <MenubarTrigger>{t("editMenu")}</MenubarTrigger>
+              <MenubarTrigger data-settings-entry>
+                {t("editMenu")}
+              </MenubarTrigger>
               <MenubarContent>
                 <MenubarGroup>
                   <MenubarItem
@@ -117,25 +159,7 @@ export function AppToolbar(props: Props) {
             </MenubarMenu>
           </Menubar>
         </div>
-        <div className="header-actions">
-          <Button
-            size="compact"
-            disabled={props.executeDisabled}
-            onClick={props.onExecute}
-          >
-            {props.busy ? (
-              <LoaderCircle className="animate-spin" data-icon="inline-start" />
-            ) : (
-              <ArrowRight data-icon="inline-start" />
-            )}
-            {t("execute")}
-          </Button>
-          <Button variant="ghost" size="compact" onClick={props.onHistory}>
-            <History data-icon="inline-start" />
-            {t("history")}
-          </Button>
-        </div>
-      </header>
+      </WindowTitlebar>
       <Dialog open={aboutOpen} onOpenChange={setAboutOpen}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>

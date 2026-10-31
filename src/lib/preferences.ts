@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
-import { isTauri } from "@tauri-apps/api/core";
-import { emit, listen } from "@tauri-apps/api/event";
 import i18n from "./i18n";
 
 export type Preferences = {
@@ -55,7 +53,6 @@ export function usePreferences(onError: (error: unknown) => void) {
     (patch: Partial<Preferences>) => {
       try {
         applyPatch(patch);
-        if (isTauri()) void emit("preferences-changed", patch).catch(onError);
       } catch (error) {
         onError({ code: "settingsSave", detail: String(error) });
       }
@@ -64,8 +61,6 @@ export function usePreferences(onError: (error: unknown) => void) {
   );
 
   useEffect(() => {
-    let cancelled = false;
-    let cleanup: (() => void) | undefined;
     const refresh = () => setPreferences(readPreferences());
     const onStorage = (event: StorageEvent) => {
       if (
@@ -76,31 +71,11 @@ export function usePreferences(onError: (error: unknown) => void) {
     };
     window.addEventListener("storage", onStorage);
     window.addEventListener("focus", refresh);
-    if (isTauri()) {
-      void listen<Partial<Preferences>>("preferences-changed", (event) => {
-        if (cancelled) return;
-        try {
-          applyPatch(event.payload);
-        } catch (error) {
-          onError({ code: "settingsSave", detail: String(error) });
-        }
-      })
-        .then((unlisten) => {
-          if (cancelled) unlisten();
-          else {
-            cleanup = unlisten;
-            refresh();
-          }
-        })
-        .catch(onError);
-    }
     return () => {
-      cancelled = true;
-      cleanup?.();
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("focus", refresh);
     };
-  }, [applyPatch, onError]);
+  }, []);
 
   useLayoutEffect(() => {
     const media = matchMedia("(prefers-color-scheme: dark)");

@@ -2203,6 +2203,7 @@ dependencies = [
  "tauri-plugin-clipboard-manager",
  "tauri-plugin-dialog",
  "tauri-plugin-single-instance",
+ "tauri-plugin-snap-layout",
  "tauri-plugin-window-state",
  "tempfile",
  "unicode-segmentation",
@@ -3801,6 +3802,22 @@ dependencies = [
  "tracing",
  "windows-sys 0.61.2",
  "zbus",
+]
+
+[[package]]
+name = "tauri-plugin-snap-layout"
+version = "1.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f76070bb989b055b9c8a789520c3e2eb70f6cb155fc70598d464925e36a1d78"
+dependencies = [
+ "raw-window-handle",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.21",
+ "windows-sys 0.61.2",
+ "windows-version",
 ]
 
 [[package]]

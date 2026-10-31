@@ -100,6 +100,10 @@ for (const language of ["zh-CN", "en"]) {
       const reference = settings.locator(".variables-reference");
       await expect(reference).toBeVisible();
       await expect(reference.locator("dt")).toHaveCount(23);
+      await expect(page.locator('[data-slot="accordion-content"]')).toHaveCSS(
+        "--accordion-panel-height",
+        "auto",
+      );
       for (const variable of variables) {
         await expect(
           reference
@@ -276,7 +280,7 @@ test("missing variables identify the affected row and can be excluded", async ({
   );
   await expect(page.locator("tbody tr").nth(1)).not.toContainText("不可用");
   await expect(
-    page.getByRole("button", { name: "执行重命名", exact: true }),
+    page.getByRole("button", { name: "执行命名", exact: true }),
   ).toBeDisabled();
   await page
     .getByRole("checkbox", { name: "选择对象", exact: true })

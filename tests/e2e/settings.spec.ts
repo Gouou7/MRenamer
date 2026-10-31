@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { addFiles, mockDesktop, openSettings } from "./helpers/desktop";
 
-test("settings opens once and synchronizes without changing the workspace", async ({
+test("settings stays in the main window and preserves the workspace", async ({
   page,
   context,
 }) => {
@@ -10,46 +10,41 @@ test("settings opens once and synchronizes without changing the workspace", asyn
   await addFiles(page);
   await page.getByRole("button", { name: "自动编号", exact: true }).click();
   await expect(page.locator("tbody")).toContainText("1_image0.png");
-  const settings = await openSettings(page);
+  await openSettings(page);
+  const dialog = page.getByRole("dialog");
+  const close = dialog.getByRole("button", { name: "关闭", exact: true });
+  await expect(close).toHaveText("");
+  await expect(close.locator("svg")).toHaveCount(1);
+  expect(context.pages()).toHaveLength(1);
+  expect(await page.evaluate(() => (window as any).__settingsOpenCalls)).toBe(
+    0,
+  );
+  await expect(dialog.getByRole("tab")).toHaveCount(0);
+  for (const name of ["外观", "载入选项"])
+    await expect(
+      dialog.getByRole("group", { name, exact: true }),
+    ).toBeVisible();
   await expect(
-    settings.getByRole("heading", { name: "设置", exact: true }),
-  ).toBeVisible();
-  await expect(settings.getByRole("tab")).toHaveCount(0);
-  await expect(
-    settings.getByRole("group", { name: "外观", exact: true }),
-  ).toBeVisible();
-  await expect(
-    settings.getByRole("group", { name: "载入选项", exact: true }),
-  ).toBeVisible();
-  await expect(
-    settings.getByRole("button", { name: "可用变量", exact: true }),
+    dialog.getByRole("button", { name: "可用变量", exact: true }),
   ).toHaveAttribute("aria-expanded", "false");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.getByRole("menuitem", { name: "编辑", exact: true }).click();
-  await page.getByRole("menuitem", { name: "设置", exact: true }).click();
-  await expect
-    .poll(() => page.evaluate(() => (window as any).__settingsOpenCalls))
-    .toBe(2);
-  expect(context.pages()).toHaveLength(2);
-  await settings.getByRole("combobox", { name: "主题", exact: true }).click();
-  await settings.getByRole("option", { name: "深色", exact: true }).click();
-  await expect(settings.locator("html")).toHaveClass(/dark/);
+  await dialog.getByRole("combobox", { name: "主题", exact: true }).click();
+  await page.getByRole("option", { name: "深色", exact: true }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
-  await settings.getByRole("combobox", { name: "语言", exact: true }).click();
-  await settings.getByRole("option", { name: "English", exact: true }).click();
+  await dialog.getByRole("combobox", { name: "语言", exact: true }).click();
+  await page.getByRole("option", { name: "English", exact: true }).click();
   await expect(
-    page.getByRole("menuitem", { name: "Edit", exact: true }),
+    page.getByRole("dialog", { name: "Settings", exact: true }),
   ).toBeVisible();
-  await expect(settings).toHaveTitle("Settings - MRenamer");
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator("[data-settings-entry]")).toBeFocused();
   await expect(page.getByTestId("rule-item")).toHaveCount(1);
   await expect(page.locator("tbody")).toContainText("1_image0.png");
-  await settings.getByRole("button", { name: "Close", exact: true }).click();
-  await expect.poll(() => settings.isClosed()).toBeTruthy();
-  const reopened = await openSettings(page, false);
+  await openSettings(page, false);
   await expect(
-    reopened.getByRole("combobox", { name: "Theme", exact: true }),
+    page.getByRole("combobox", { name: "Theme", exact: true }),
   ).toContainText("Dark");
-  await reopened.close();
+  await page.keyboard.press("Escape");
   await page.reload();
   await expect(page.locator("html")).toHaveClass(/dark/);
   await expect(
@@ -57,39 +52,39 @@ test("settings opens once and synchronizes without changing the workspace", asyn
   ).toBeVisible();
 });
 
-test("import preferences persist and apply to the next main-window import", async ({
+test("import preferences persist and apply to the next import", async ({
   page,
 }) => {
   await mockDesktop(page, 2);
   await page.goto("/");
-  const settings = await openSettings(page);
-  const recursive = settings.getByRole("switch", {
+  await openSettings(page);
+  const recursive = page.getByRole("switch", {
     name: "包含子文件夹内容",
     exact: true,
   });
   await expect(recursive).toBeDisabled();
-  await settings
+  await page
     .getByRole("switch", { name: "载入文件夹内容", exact: true })
     .click();
   await recursive.click();
-  await expect
-    .poll(() => page.evaluate(() => localStorage.getItem("renamer.recursive")))
-    .toBe("true");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "关闭", exact: true })
+    .click();
   await addFiles(page);
   await expect
     .poll(() => page.evaluate(() => (window as any).__scanCalls.at(-1)))
     .toMatchObject({ contents: true, recursive: true });
-  await settings.getByRole("button", { name: "关闭", exact: true }).click();
   await page.reload();
-  const reopened = await openSettings(page);
+  await openSettings(page);
   await expect(
-    reopened.getByRole("switch", { name: "包含子文件夹内容", exact: true }),
+    page.getByRole("switch", { name: "包含子文件夹内容", exact: true }),
   ).toBeChecked();
 });
 
 for (const language of ["zh-CN", "en"]) {
   for (const theme of ["light", "dark"]) {
-    test(`settings stays usable at 640px with keyboard navigation ${language} ${theme}`, async ({
+    test(`settings accordion and keyboard at 760px ${language} ${theme}`, async ({
       page,
     }) => {
       await page.addInitScript(
@@ -99,74 +94,97 @@ for (const language of ["zh-CN", "en"]) {
         },
         { language, theme },
       );
-      await page.setViewportSize({ width: 640, height: 480 });
-      await page.goto("/?view=settings");
-      await expect(page.getByRole("tablist")).toHaveCount(0);
-      const trigger = page.getByRole("button", {
-        name: language === "zh-CN" ? "可用变量" : "Available variables",
-        exact: true,
-      });
-      await expect(trigger).toHaveAttribute("aria-expanded", "false");
-      await expect(page.locator(".variable-definitions dt")).toHaveCount(0);
-      await expect(page.locator(".settings-header h1")).toHaveCSS(
+      await page.setViewportSize({ width: 760, height: 620 });
+      await page.goto("/");
+      const zh = language === "zh-CN";
+      await openSettings(page, zh);
+      const dialog = page.getByRole("dialog");
+      await expect(dialog.getByRole("tablist")).toHaveCount(0);
+      await expect(dialog.locator('[data-slot="dialog-title"]')).toHaveCSS(
         "font-size",
         "13px",
       );
-      for (const legend of await page
-        .locator('[data-slot="field-legend"]')
+      const trigger = dialog.getByRole("button", {
+        name: zh ? "可用变量" : "Available variables",
+        exact: true,
+      });
+      await expect(trigger).toHaveAttribute("aria-expanded", "false");
+      await expect(dialog.locator('[data-slot="accordion-item"]')).toHaveCount(
+        1,
+      );
+      await expect(dialog.locator(".variable-definitions dt")).toHaveCount(0);
+      for (const label of await dialog
+        .locator('[data-slot="field-label"]')
         .all())
-        await expect(legend).toHaveCSS("font-size", "13px");
-      for (const label of await page.locator('[data-slot="field-label"]').all())
         await expect(label).toHaveCSS("font-size", "12px");
-      for (const field of await page.getByRole("combobox").all())
+      for (const field of await dialog.getByRole("combobox").all())
         await expect(field).toHaveCSS("font-size", "12px");
-      await page.getByRole("combobox").first().click();
+      await dialog.getByRole("combobox").first().click();
       for (const option of await page.getByRole("option").all())
         await expect(option).toHaveCSS("font-size", "12px");
       await page.keyboard.press("Escape");
+      await expect(dialog).toBeVisible();
       await page.screenshot({
-        path: `.work/screenshots/settings-sections-${language}-${theme}.png`,
-        fullPage: true,
+        path: `.work/screenshots/settings-dialog-${language}-${theme}.png`,
       });
       await trigger.focus();
       await page.keyboard.press("Space");
       await expect(trigger).toHaveAttribute("aria-expanded", "true");
-      await expect(page.locator(".variable-definitions dt")).toHaveCount(23);
-      await page
+      await expect(dialog.locator(".variable-definitions dt")).toHaveCount(23);
+      await expect(dialog.locator('[data-slot="accordion-content"]')).toHaveCSS(
+        "--accordion-panel-height",
+        "auto",
+      );
+      await dialog
         .locator(".variable-definitions dt")
         .last()
         .scrollIntoViewIfNeeded();
       await expect(
-        page.locator(".variable-definitions dt").last(),
+        dialog.locator(".variable-definitions dt").last(),
       ).toBeInViewport();
+      const bounds = (await dialog.boundingBox())!;
+      expect(bounds.y).toBeGreaterThanOrEqual(0);
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(620);
       expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= innerWidth,
-        ),
+        await dialog
+          .locator(".settings-content")
+          .evaluate((element) => element.scrollHeight > element.clientHeight),
       ).toBeTruthy();
+      await expect(
+        dialog.locator(".variable-definitions code").last(),
+      ).toHaveCSS("user-select", "text");
       await page.screenshot({
-        path: `.work/screenshots/settings-${language}-${theme}.png`,
-        fullPage: true,
+        path: `.work/screenshots/settings-accordion-${language}-${theme}.png`,
       });
       await trigger.focus();
       await page.keyboard.press("Enter");
       await expect(trigger).toHaveAttribute("aria-expanded", "false");
-      await expect(page.locator(".variable-definitions dt")).toHaveCount(0);
-      await page.reload();
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+      await openSettings(page, zh);
       await expect(trigger).toHaveAttribute("aria-expanded", "false");
     });
   }
 }
 
-test("a failed settings window open reports an error in the main window", async ({
+test("failed preference writes are reported inside settings", async ({
   page,
 }) => {
-  await mockDesktop(page, 0);
   await page.goto("/");
+  await openSettings(page);
   await page.evaluate(() => {
-    (window as any).__settingsOpenError = true;
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "renamer.theme") throw new Error("Storage unavailable");
+      return original.call(this, key, value);
+    };
   });
-  await page.getByRole("menuitem", { name: "编辑", exact: true }).click();
-  await page.getByRole("menuitem", { name: "设置", exact: true }).click();
-  await expect(page.locator(".status-error")).toContainText("无法打开设置窗口");
+  await page.getByRole("combobox", { name: "主题", exact: true }).click();
+  await page.getByRole("option", { name: "深色", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toContainText(
+    "无法保存设置",
+  );
+  await expect(
+    page.getByRole("combobox", { name: "主题", exact: true }),
+  ).toContainText("跟随系统");
 });

@@ -28,12 +28,14 @@ export function Choice({
   values,
   onChange,
   disabled = false,
+  popupClassName,
 }: {
   label: string;
   value: string;
   values: [string, string][];
   onChange: (v: string) => void;
   disabled?: boolean;
+  popupClassName?: string;
 }) {
   const id = useId();
   return (
@@ -48,7 +50,7 @@ export function Choice({
         <SelectTrigger id={id} className="w-full">
           <SelectValue />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className={popupClassName}>
           <SelectGroup>
             {values.map(([v, l]) => (
               <SelectItem key={v} value={v}>

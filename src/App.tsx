@@ -34,13 +34,14 @@ import {
   EmptyDescription,
 } from "@/components/ui/empty";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetClose,
-} from "@/components/ui/sheet";
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerClose,
+} from "@/components/ui/drawer";
+import { SettingsDialog } from "@/components/SettingsDialog";
 import { StatusBar } from "@/components/StatusBar";
 import { RuleEditor } from "@/components/RuleEditor";
 import { RuleList } from "@/components/RuleList";
@@ -61,7 +62,6 @@ import { useSidebarLayout } from "@/lib/use-sidebar-layout";
 import { useSystemAccent } from "@/lib/use-system-accent";
 import { VariableCatalogProvider } from "@/lib/variables";
 import { usePreferences } from "@/lib/preferences";
-import { openSettingsWindow } from "@/lib/settings-window";
 import type { AppError } from "@/lib/types";
 import "@/lib/i18n";
 
@@ -92,7 +92,7 @@ export default function App() {
   const [message, setMessage] = useState("");
   const [progress, setProgress] = useState<Progress | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [sheet, setSheet] = useState<"history" | null>(null);
+  const [overlay, setOverlay] = useState<"history" | "settings" | null>(null);
   const revision = useRef(0);
   const locked = useRef(false);
   const loadRef = useRef<(paths: string[]) => Promise<void>>(async () => {});
@@ -139,16 +139,15 @@ export default function App() {
   const refreshHistory = useCallback(async () => {
     if (desktop) setHistory(await invoke<HistoryEntry[]>("list_history"));
   }, [desktop]);
-  const {
-    preferences: { contents, recursive },
-  } = usePreferences(report);
+  const { preferences, updatePreferences } = usePreferences(report);
+  const { contents, recursive } = preferences;
   useEffect(() => {
     void refreshHistory().catch(report);
   }, [refreshHistory, report]);
   useEffect(() => {
     if (active && !rules.some((r) => r.id === active))
       setActive(rules[0]?.id ?? null);
-  }, [rules, active, sheet]);
+  }, [rules, active]);
   useEffect(() => {
     if (!desktop) return;
     let cancelled = false;
@@ -377,6 +376,8 @@ export default function App() {
     <VariableCatalogProvider onError={report}>
       <div className="app-shell">
         <AppToolbar
+          modalOpen={overlay !== null}
+          onError={report}
           busy={busy}
           desktop={desktop}
           executeDisabled={
@@ -405,8 +406,8 @@ export default function App() {
             setEntries([]);
             setSelected(new Set());
           }}
-          onSettings={() => void openSettingsWindow().catch(report)}
-          onHistory={() => setSheet("history")}
+          onSettings={() => setOverlay("settings")}
+          onHistory={() => setOverlay("history")}
           onExit={() => {
             if (desktop && !locked.current)
               void getCurrentWindow().close().catch(report);
@@ -587,90 +588,108 @@ export default function App() {
             onRecover={() => recovery && void undo(recovery.id)}
           />
         </main>
-        <Sheet
-          open={sheet !== null}
-          onOpenChange={(value) => !value && setSheet(null)}
+        <SettingsDialog
+          open={overlay === "settings"}
+          onOpenChange={(open) => !open && setOverlay(null)}
+          preferences={preferences}
+          error={error?.code === "settingsSave" ? error : null}
+          onChange={(patch) => {
+            setError((previous) =>
+              previous?.code === "settingsSave" ? null : previous,
+            );
+            updatePreferences(patch);
+          }}
+        />
+        <Drawer
+          open={overlay === "history"}
+          onOpenChange={(value) => !value && setOverlay(null)}
+          showSwipeHandle
+          swipeDirection="down"
         >
-          <SheetContent className="app-sheet" showCloseButton={false}>
-            <SheetHeader>
+          <DrawerContent
+            className="history-drawer"
+            finalFocus={() =>
+              document.querySelector<HTMLButtonElement>("[data-history-entry]")
+            }
+          >
+            <DrawerHeader>
               <div className="flex items-center justify-between">
-                <SheetTitle>{t("history")}</SheetTitle>
-                <SheetClose render={<Button variant="ghost" size="sm" />}>
+                <DrawerTitle>{t("history")}</DrawerTitle>
+                <DrawerClose render={<Button variant="ghost" size="compact" />}>
                   {t("close")}
-                </SheetClose>
+                </DrawerClose>
               </div>
-              <SheetDescription className="sr-only">
+              <DrawerDescription className="sr-only">
                 {t("history")}
-              </SheetDescription>
-            </SheetHeader>
-            <div className="sheet-scroll">
-              {sheet === "history" &&
-                (history.length ? (
-                  <div className="history-list">
-                    {history.map((h) => (
-                      <article className="history-item" key={h.id}>
-                        <div className="flex items-center justify-between">
-                          <Badge
-                            variant={
-                              h.status === "recoveryNeeded"
-                                ? "destructive"
-                                : "secondary"
-                            }
-                          >
-                            {t(
-                              h.status === "completed"
-                                ? "historyCompleted"
-                                : h.status,
-                            )}
-                          </Badge>
-                          <span>{h.count}</span>
-                        </div>
-                        <time>
-                          {new Date(h.created * 1000).toLocaleString(
-                            i18n.language,
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="history-scroll">
+              {history.length ? (
+                <div className="history-list">
+                  {history.map((h) => (
+                    <article className="history-item" key={h.id}>
+                      <div className="flex items-center justify-between">
+                        <Badge
+                          variant={
+                            h.status === "recoveryNeeded"
+                              ? "destructive"
+                              : "secondary"
+                          }
+                        >
+                          {t(
+                            h.status === "completed"
+                              ? "historyCompleted"
+                              : h.status,
                           )}
-                        </time>
-                        {h.detail && (
-                          <details>
-                            <summary>{t("showDetails")}</summary>
-                            <pre>{h.detail}</pre>
-                          </details>
+                        </Badge>
+                        <span>{h.count}</span>
+                      </div>
+                      <time>
+                        {new Date(h.created * 1000).toLocaleString(
+                          i18n.language,
                         )}
-                        {!!h.pendingPaths?.length && (
-                          <details open>
-                            <summary>{t("pendingObjects")}</summary>
-                            <ul>
-                              {h.pendingPaths.map((path) => (
-                                <li key={path} className="break-all">
-                                  {path}
-                                </li>
-                              ))}
-                            </ul>
-                          </details>
-                        )}
-                        {h.id === undoable?.id && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={busy}
-                            onClick={() => void undo(h.id)}
-                          >
-                            {t(h.status === "completed" ? "undo" : "recover")}
-                          </Button>
-                        )}
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <Empty>
-                    <EmptyHeader>
-                      <EmptyTitle>{t("noHistory")}</EmptyTitle>
-                    </EmptyHeader>
-                  </Empty>
-                ))}
+                      </time>
+                      {h.detail && (
+                        <details>
+                          <summary>{t("showDetails")}</summary>
+                          <pre>{h.detail}</pre>
+                        </details>
+                      )}
+                      {!!h.pendingPaths?.length && (
+                        <details open>
+                          <summary>{t("pendingObjects")}</summary>
+                          <ul>
+                            {h.pendingPaths.map((path) => (
+                              <li key={path} className="break-all">
+                                {path}
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                      {h.id === undoable?.id && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => void undo(h.id)}
+                        >
+                          {t(h.status === "completed" ? "undo" : "recover")}
+                        </Button>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <Empty>
+                  <EmptyHeader>
+                    <EmptyTitle>{t("noHistory")}</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              )}
             </div>
-          </SheetContent>
-        </Sheet>
+          </DrawerContent>
+        </Drawer>
       </div>
     </VariableCatalogProvider>
   );

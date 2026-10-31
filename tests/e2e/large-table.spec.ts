@@ -15,7 +15,7 @@ test("ten thousand rows are virtualized and scrolling reaches the last row", asy
   expect(first?.height).toBe(26);
   expect(second!.y - first!.y).toBe(26);
   await page.getByRole("button", { name: /自动编号/ }).click();
-  await expect(page.getByRole("button", { name: "执行重命名" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "执行命名" })).toBeEnabled();
   await page.locator(".file-scroll").evaluate((element) => {
     element.scrollTop = element.scrollHeight;
   });
@@ -39,5 +39,5 @@ test("a late preview response cannot replace the latest parameters", async ({
   await expect(page.locator("tbody")).toContainText("2_image0.png");
   await page.waitForTimeout(1000);
   await expect(page.locator("tbody")).not.toContainText("1_image0.png");
-  await expect(page.getByRole("button", { name: "执行重命名" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "执行命名" })).toBeEnabled();
 });

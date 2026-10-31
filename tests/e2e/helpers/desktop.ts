@@ -5,31 +5,35 @@ export async function addFiles(page: Page) {
   await page.getByRole("menuitem", { name: "添加文件", exact: true }).click();
 }
 export async function openSettings(page: Page, chinese = true) {
-  const popup = page.waitForEvent("popup");
   await page
     .getByRole("menuitem", { name: chinese ? "编辑" : "Edit", exact: true })
     .click();
   await page
     .getByRole("menuitem", { name: chinese ? "设置" : "Settings", exact: true })
     .click();
-  const settings = await popup;
-  await settings.waitForLoadState();
-  return settings;
+  await page
+    .getByRole("dialog", { name: chinese ? "设置" : "Settings", exact: true })
+    .waitFor();
+  return page;
 }
 export async function mockDesktop(page: Page, count: number) {
-  await page.addInitScript(
+  await page.context().addInitScript(
     ({ count, variables }) => {
       const win = window as unknown as Record<string, any>;
       win.isTauri = true;
       win.__previewCalls = [];
       win.__dialogCalls = [];
       win.__closeCalls = 0;
+      win.__windowCalls = [];
+      win.__maximized = false;
       win.__accentColor = null;
       win.__clipboardText = "";
       win.__clipboardCalls = [];
       win.__previewRequests = [];
       win.__settingsOpenCalls = 0;
       win.__scanCalls = [];
+      win.__historyEntries = [];
+      win.__undoCalls = [];
       const entries = Array.from({ length: count }, (_, i) => ({
         id: `file-${i}`,
         path: `/fixtures/image${i}.png`,
@@ -39,33 +43,56 @@ export async function mockDesktop(page: Page, count: number) {
         fingerprint: null,
       }));
       let callback = 0;
+      const callbacks = new Map<number, (event: any) => void>();
+      const listeners = new Map<number, { event: string; handler: number }>();
+      const emitWindowEvent = (event: string, payload: unknown) => {
+        for (const listener of listeners.values()) {
+          if (listener.event === event)
+            callbacks.get(listener.handler)?.({ event, payload, id: 0 });
+        }
+      };
+      win.__emitWindowEvent = emitWindowEvent;
       win.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
       win.__TAURI_INTERNALS__ = {
         metadata: {
           currentWindow: {
-            label: location.search.includes("view=settings")
-              ? "settings"
-              : "main",
+            label: "main",
           },
           currentWebview: {
-            label: location.search.includes("view=settings")
-              ? "settings"
-              : "main",
+            label: "main",
           },
         },
-        transformCallback: () => ++callback,
-        unregisterCallback: () => {},
+        transformCallback: (handler: (event: any) => void) => {
+          const id = ++callback;
+          callbacks.set(id, handler);
+          return id;
+        },
+        unregisterCallback: (id: number) => {
+          callbacks.delete(id);
+        },
         invoke: async (command: string, args: any) => {
-          if (command === "open_settings") {
-            if (win.__settingsOpenError)
-              throw { code: "settingsOpen", detail: "fixture" };
-            win.__settingsOpenCalls++;
-            win.open(
-              "/?view=settings",
-              "mrenamer-settings",
-              "popup,width=820,height=680",
-            );
+          if (
+            [
+              "plugin:window|start_dragging",
+              "plugin:window|minimize",
+              "plugin:window|toggle_maximize",
+            ].includes(command)
+          ) {
+            win.__windowCalls.push(command);
+            if (win.__windowError) throw new Error("Window operation failed");
+            if (command.endsWith("toggle_maximize")) {
+              win.__maximized = !win.__maximized;
+              emitWindowEvent("tauri://resize", {
+                width: innerWidth,
+                height: innerHeight,
+              });
+            }
             return null;
+          }
+          if (command === "plugin:window|is_maximized") return win.__maximized;
+          if (command === "open_settings") {
+            win.__settingsOpenCalls++;
+            throw new Error("Settings must open inside the main window");
           }
           if (command === "plugin:window|set_title") return null;
           if (command === "plugin:event|emit") return null;
@@ -85,9 +112,26 @@ export async function mockDesktop(page: Page, count: number) {
             if (win.__accentUnavailable) throw new Error("Color unavailable");
             return win.__accentColor;
           }
-          if (command === "list_history") return [];
-          if (command === "plugin:event|listen") return ++callback;
-          if (command === "plugin:event|unlisten") return null;
+          if (command === "list_history") return win.__historyEntries;
+          if (command === "undo_rename") {
+            win.__undoCalls.push(args.operationId);
+            if (win.__undoError)
+              throw { code: "undoConflict", detail: "fixture" };
+            const operation = win.__historyEntries.find(
+              (entry: any) => entry.id === args.operationId,
+            );
+            operation.status = "undone";
+            return operation;
+          }
+          if (command === "plugin:event|listen") {
+            const id = ++callback;
+            listeners.set(id, { event: args.event, handler: args.handler });
+            return id;
+          }
+          if (command === "plugin:event|unlisten") {
+            listeners.delete(args.eventId);
+            return null;
+          }
           if (command === "plugin:dialog|open") {
             win.__dialogCalls.push(args.options);
             return ["/fixtures"];
@@ -98,7 +142,6 @@ export async function mockDesktop(page: Page, count: number) {
           }
           if (command === "plugin:window|close") {
             win.__closeCalls++;
-            if (location.search.includes("view=settings")) win.close();
             return null;
           }
           if (command === "preview_rename") {

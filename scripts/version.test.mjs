@@ -290,7 +290,7 @@ test(
   { timeout: 120000 },
   (t) => {
     const f = fixture(t);
-    for (const name of ["src", "scripts"])
+    for (const name of ["src", "scripts", "assets"])
       cpSync(join(projectRoot, name), join(f.dir, name), { recursive: true });
     for (const name of [
       ".gitignore",
