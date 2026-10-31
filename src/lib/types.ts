@@ -41,6 +41,7 @@ export type RuleConfig =
     }
   | {
       type: "number";
+      style: "numeric" | "upper" | "lower";
       start: number;
       step: number;
       width: number;
@@ -144,6 +145,7 @@ export function createRule(type: RuleType): RenameRule {
     },
     number: {
       type: "number",
+      style: "numeric",
       start: 1,
       step: 1,
       width: 1,
@@ -183,7 +185,9 @@ export function summarize(
     case "remove":
       return tr(c.mode === "selection" ? (c.keep ? "keep" : "delete") : c.mode);
     case "number":
-      return `${tr("start")} ${c.start} · ${tr("width")} ${c.width}`;
+      return c.style === "numeric"
+        ? `${tr("start")} ${c.start} · ${tr("width")} ${c.width}`
+        : `${tr(c.style === "upper" ? "numberUpper" : "numberLower")} · ${tr("start")} ${c.start}`;
     case "move":
       return `${tr(c.left ? "left" : "right")} ${c.distance}`;
     case "case":

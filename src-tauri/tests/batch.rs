@@ -6,6 +6,7 @@ fn numbered(per_directory: bool) -> RenameRule {
         enabled: true,
         scope: "stem".into(),
         config: RuleConfig::Number {
+            style: NumberStyle::Numeric,
             start: 1,
             step: 1,
             width: 3,
@@ -95,4 +96,39 @@ fn clearing_then_numbering_is_valid_but_final_empty_is_not() {
     };
     let plan = calculate(&[e], &ids, &[clear_full], 0).unwrap();
     assert_eq!(plan.conflicts, 1);
+}
+
+#[test]
+fn alphabetic_numbering_restarts_per_directory_and_skips_unselected_rows() {
+    let temp = tempfile::tempdir().unwrap();
+    let entries = [
+        entry(temp.path(), "a/one.png"),
+        entry(temp.path(), "a/skip.png"),
+        entry(temp.path(), "b/one.png"),
+        entry(temp.path(), "a/two.png"),
+    ];
+    let ids = [0, 2, 3].map(|i| entries[i].id.clone());
+    for (style, first, second) in [
+        (NumberStyle::Upper, "Z", "AB"),
+        (NumberStyle::Lower, "z", "ab"),
+    ] {
+        let mut rule = numbered(true);
+        if let RuleConfig::Number {
+            style: s,
+            start,
+            step,
+            ..
+        } = &mut rule.config
+        {
+            *s = style;
+            *start = 26;
+            *step = 2;
+        }
+        let plan = calculate(&entries, &ids, &[rule], 0).unwrap();
+        assert_eq!(plan.rows[0].new_name, format!("{first}one.png"));
+        assert_eq!(plan.rows[1].new_name, "skip.png");
+        assert_eq!(plan.rows[2].new_name, format!("{first}one.png"));
+        assert_eq!(plan.rows[3].new_name, format!("{second}two.png"));
+        assert_eq!(plan.conflicts, 0);
+    }
 }

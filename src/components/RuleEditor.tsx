@@ -416,12 +416,27 @@ export function RuleEditor({
         )}
         {c.type === "number" && (
           <>
-            <div className="grid grid-cols-2 gap-3">
+            <RuleChoice
+              label={t("numberStyle")}
+              value={c.style}
+              values={[
+                ["numeric", t("numberNumeric")],
+                ["upper", t("numberUpper")],
+                ["lower", t("numberLower")],
+              ]}
+              onChange={(style) =>
+                patch({
+                  style,
+                  start: style !== "numeric" && c.start < 1 ? 1 : c.start,
+                })
+              }
+            />
+            <FieldGroup className="grid grid-cols-2 gap-3">
               <TextField
                 label={t("start")}
                 value={c.start}
                 number
-                min={Number.MIN_SAFE_INTEGER}
+                min={c.style === "numeric" ? Number.MIN_SAFE_INTEGER : 1}
                 onChange={(v) => patch({ start: Number(v) })}
               />
               <TextField
@@ -431,19 +446,26 @@ export function RuleEditor({
                 min={1}
                 onChange={(v) => patch({ step: Number(v) })}
               />
-              <TextField
-                label={t("width")}
-                value={c.width}
-                number
-                min={1}
-                onChange={(v) => patch({ width: Number(v) })}
-              />
-              <TextField
-                label={t("fill")}
-                value={c.fill}
-                onChange={(fill) => patch({ fill })}
-              />
-            </div>
+              {c.style === "numeric" && (
+                <>
+                  <TextField
+                    label={t("width")}
+                    value={c.width}
+                    number
+                    min={1}
+                    onChange={(v) => patch({ width: Number(v) })}
+                  />
+                  <TextField
+                    label={t("fill")}
+                    value={c.fill}
+                    onChange={(fill) => patch({ fill })}
+                  />
+                </>
+              )}
+            </FieldGroup>
+            {c.style !== "numeric" && (
+              <FieldDescription>{t("numberLettersHelp")}</FieldDescription>
+            )}
             <Flag
               label={t("perDirectory")}
               value={c.perDirectory}

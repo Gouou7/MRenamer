@@ -107,6 +107,15 @@ impl Default for Selection {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum NumberStyle {
+    #[default]
+    Numeric,
+    Upper,
+    Lower,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum RuleConfig {
@@ -131,6 +140,8 @@ pub enum RuleConfig {
         category: String,
     },
     Number {
+        #[serde(default)]
+        style: NumberStyle,
         start: i64,
         step: u64,
         width: usize,

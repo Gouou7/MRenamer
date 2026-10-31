@@ -73,6 +73,79 @@ fn links_and_link_ancestors_are_not_scanned() {
     assert_eq!(entries[0].kind, "link");
 }
 fn noop(_: Progress) {}
+
+#[test]
+fn alphabetic_preview_matches_execution_and_undo_after_restart() {
+    for (style, names) in [
+        (NumberStyle::Upper, ["Za.txt", "AA子目录"]),
+        (NumberStyle::Lower, ["za.txt", "aa子目录"]),
+    ] {
+        let t = tempdir().unwrap();
+        fs::write(t.path().join("a.txt"), "file content").unwrap();
+        fs::create_dir(t.path().join("子目录")).unwrap();
+        fs::write(t.path().join("子目录/child.txt"), "child content").unwrap();
+        let db = t.path().join("journal.db");
+        let mut engine = Engine::open(&db).unwrap();
+        let entries = engine
+            .scan(
+                ["a.txt", "子目录"]
+                    .map(|name| t.path().join(name).to_str().unwrap().into())
+                    .to_vec(),
+                false,
+                false,
+                &noop,
+            )
+            .unwrap();
+        let ids = entries
+            .iter()
+            .map(|entry| entry.id.clone())
+            .collect::<Vec<_>>();
+        let rule = RenameRule {
+            id: "letters".into(),
+            enabled: true,
+            scope: "stem".into(),
+            config: RuleConfig::Number {
+                style,
+                start: 26,
+                step: 1,
+                width: 3,
+                fill: "0".into(),
+                per_directory: false,
+                position: Position {
+                    mode: "prefix".into(),
+                    ..Default::default()
+                },
+            },
+        };
+        let plan = engine.preview(ids.clone(), ids, vec![rule], 0).unwrap();
+        assert_eq!(plan.conflicts, 0);
+        assert_eq!(plan.rows[0].new_name, names[0]);
+        assert_eq!(plan.rows[1].new_name, names[1]);
+        let op = engine.execute(&plan.id, &noop).unwrap();
+        assert_eq!(
+            fs::read_to_string(t.path().join(names[0])).unwrap(),
+            "file content"
+        );
+        assert_eq!(
+            fs::read_to_string(t.path().join(names[1]).join("child.txt")).unwrap(),
+            "child content"
+        );
+        drop(engine);
+        let mut engine = Engine::open(&db).unwrap();
+        engine.undo(&op.id, &noop).unwrap();
+        assert_eq!(
+            fs::read_to_string(t.path().join("a.txt")).unwrap(),
+            "file content"
+        );
+        assert_eq!(
+            fs::read_to_string(t.path().join("子目录/child.txt")).unwrap(),
+            "child content"
+        );
+        assert!(!t.path().join(names[0]).exists());
+        assert!(!t.path().join(names[1]).exists());
+    }
+}
+
 fn add(text: &str) -> RenameRule {
     RenameRule {
         id: "add".into(),

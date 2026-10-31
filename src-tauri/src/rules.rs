@@ -152,13 +152,19 @@ pub fn validate(r: &RenameRule) -> Result<()> {
             _ => return Err(invalid("removeMode")),
         },
         RuleConfig::Number {
+            style,
+            start,
             step,
             width,
             fill,
             position,
             ..
         } => {
-            if *step == 0 || *width == 0 || *width > 64 || graphemes(fill).len() != 1 {
+            if *step == 0
+                || (*style == NumberStyle::Numeric
+                    && (*width == 0 || *width > 64 || graphemes(fill).len() != 1))
+                || (*style != NumberStyle::Numeric && *start < 1)
+            {
                 return Err(invalid("numberSettings"));
             }
             check_position(position)?;
@@ -269,6 +275,7 @@ pub fn apply(s: &str, config: &RuleConfig, ordinal: usize) -> Result<String> {
             }
         },
         RuleConfig::Number {
+            style,
             start,
             step,
             width,
@@ -283,14 +290,37 @@ pub fn apply(s: &str, config: &RuleConfig, ordinal: usize) -> Result<String> {
                         .ok_or_else(|| invalid("numberOverflow"))?,
                 )
                 .ok_or_else(|| invalid("numberOverflow"))?;
-            let digits = n.abs().to_string();
-            let padded = format!(
-                "{}{}{}",
-                if n < 0 { "-" } else { "" },
-                fill.repeat(width.saturating_sub(digits.len())),
-                digits
-            );
-            insert(s, &padded, position)
+            let text = match style {
+                NumberStyle::Numeric => {
+                    let digits = n.abs().to_string();
+                    format!(
+                        "{}{}{}",
+                        if n < 0 { "-" } else { "" },
+                        fill.repeat(width.saturating_sub(digits.len())),
+                        digits
+                    )
+                }
+                NumberStyle::Upper | NumberStyle::Lower => {
+                    if *start < 1 {
+                        return Err(invalid("numberSettings"));
+                    }
+                    let base = if *style == NumberStyle::Upper {
+                        b'A'
+                    } else {
+                        b'a'
+                    };
+                    let mut remaining = n;
+                    let mut letters = Vec::new();
+                    // Bijective base 26: 1=A, 26=Z, 27=AA.
+                    while remaining > 0 {
+                        remaining -= 1;
+                        letters.push((base + (remaining % 26) as u8) as char);
+                        remaining /= 26;
+                    }
+                    letters.into_iter().rev().collect()
+                }
+            };
+            insert(s, &text, position)
         }
         RuleConfig::Move {
             selection,
