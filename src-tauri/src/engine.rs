@@ -114,6 +114,37 @@ impl Engine {
         });
         Ok(result)
     }
+    pub fn scan_folder_contents(
+        &mut self,
+        paths: Vec<String>,
+        include_files: bool,
+        include_folders: bool,
+        recursive: bool,
+        progress: &dyn Fn(Progress),
+    ) -> Result<Vec<FileEntry>> {
+        self.plan = None;
+        let mut children = Vec::new();
+        for path in paths {
+            let path = Path::new(&path);
+            platform::check_ancestors(path)?;
+            for child in std::fs::read_dir(path)? {
+                children.push(
+                    child?
+                        .path()
+                        .to_str()
+                        .ok_or_else(|| AppError::new("unsupportedName", path.display()))?
+                        .to_string(),
+                );
+            }
+        }
+        let mut entries = self.scan(children, recursive, recursive, progress)?;
+        entries.retain(|entry| match entry.kind.as_str() {
+            "file" => include_files,
+            "directory" => include_folders,
+            _ => true,
+        });
+        Ok(entries)
+    }
     pub fn preview(
         &mut self,
         ids: Vec<String>,

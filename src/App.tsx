@@ -17,9 +17,12 @@ import {
   FolderOpen,
   Check,
   LoaderCircle,
+  Trash2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AppToolbar } from "@/components/AppToolbar";
 import {
   ResizablePanelGroup,
@@ -73,6 +76,8 @@ const icons = {
   move: MoveHorizontal,
   case: CaseSensitive,
 };
+const canClearHistory = (entry: HistoryEntry) =>
+  ["completed", "undone", "rolledBack"].includes(entry.status);
 export default function App() {
   const { t, i18n } = useTranslation();
   const desktop = isTauri();
@@ -140,7 +145,7 @@ export default function App() {
     if (desktop) setHistory(await invoke<HistoryEntry[]>("list_history"));
   }, [desktop]);
   const { preferences, updatePreferences } = usePreferences(report);
-  const { contents, recursive } = preferences;
+  const { includeFiles, includeFolders, recursive } = preferences;
   useEffect(() => {
     void refreshHistory().catch(report);
   }, [refreshHistory, report]);
@@ -206,7 +211,7 @@ export default function App() {
     };
   }, [ordered, applicable, rules, desktop, busy, report, previewKey]);
   const load = useCallback(
-    async (paths: string[]) => {
+    async (paths: string[], contents = false) => {
       if (locked.current) return;
       locked.current = true;
       setBusy(true);
@@ -214,11 +219,15 @@ export default function App() {
       setMessage("");
       ++revision.current;
       try {
-        const added = await invoke<FileEntry[]>("scan_entries", {
-          paths,
-          contents,
-          recursive: contents && recursive,
-        });
+        const added = await invoke<FileEntry[]>(
+          contents ? "scan_folder_contents" : "scan_entries",
+          {
+            paths,
+            contents,
+            recursive: contents && recursive,
+            ...(contents ? { includeFiles, includeFolders } : {}),
+          },
+        );
         setEntries((previous) =>
           Array.from(
             new Map([...previous, ...added].map((e) => [e.id, e])).values(),
@@ -239,7 +248,7 @@ export default function App() {
         setProgress(null);
       }
     },
-    [contents, recursive, report],
+    [includeFiles, includeFolders, recursive, report],
   );
   loadRef.current = load;
   useEffect(() => {
@@ -261,14 +270,15 @@ export default function App() {
       cleanup?.();
     };
   }, [desktop, report]);
-  const choose = async (directory: boolean) => {
+  const choose = async (mode: "files" | "folders" | "contents") => {
     if (!desktop) {
       setError({ code: "desktopOnly", detail: "" });
       return;
     }
     try {
-      const paths = await open({ multiple: true, directory });
-      if (paths) await load(Array.isArray(paths) ? paths : [paths]);
+      const paths = await open({ multiple: true, directory: mode !== "files" });
+      if (paths)
+        await load(Array.isArray(paths) ? paths : [paths], mode === "contents");
     } catch (e) {
       report(e);
     }
@@ -331,6 +341,23 @@ export default function App() {
       locked.current = false;
       setBusy(false);
       setProgress(null);
+    }
+  };
+  const clearHistory = async (operationId: string | null) => {
+    if (locked.current || !desktop) return;
+    locked.current = true;
+    setBusy(true);
+    setError(null);
+    setMessage("");
+    try {
+      await invoke("clear_history", { operationId });
+      setMessage(t("historyCleared"));
+    } catch (e) {
+      report(e);
+    } finally {
+      await refreshHistory().catch(report);
+      locked.current = false;
+      setBusy(false);
     }
   };
   const rows = useMemo(() => {
@@ -615,15 +642,43 @@ export default function App() {
             <DrawerHeader>
               <div className="flex items-center justify-between">
                 <DrawerTitle>{t("history")}</DrawerTitle>
-                <DrawerClose render={<Button variant="ghost" size="compact" />}>
-                  {t("close")}
-                </DrawerClose>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="compact"
+                    disabled={busy || !history.some(canClearHistory)}
+                    onClick={() => void clearHistory(null)}
+                  >
+                    <Trash2 data-icon="inline-start" />
+                    {t("clearAllHistory")}
+                  </Button>
+                  <DrawerClose
+                    render={
+                      <Button
+                        variant="secondary"
+                        size="icon-compact"
+                        aria-label={t("close")}
+                        title={t("close")}
+                      />
+                    }
+                  >
+                    <X />
+                  </DrawerClose>
+                </div>
               </div>
               <DrawerDescription className="sr-only">
                 {t("history")}
               </DrawerDescription>
             </DrawerHeader>
             <div className="history-scroll">
+              {error &&
+                ["database", "historyClear", "historyProtected"].includes(
+                  error.code,
+                ) && (
+                  <Alert variant="destructive" className="history-error">
+                    <AlertDescription>{errorLabel}</AlertDescription>
+                  </Alert>
+                )}
               {history.length ? (
                 <div className="history-list">
                   {history.map((h) => (
@@ -642,7 +697,23 @@ export default function App() {
                               : h.status,
                           )}
                         </Badge>
-                        <span>{h.count}</span>
+                        <div className="flex items-center gap-3">
+                          <span>{h.count}</span>
+                          <Button
+                            variant="secondary"
+                            size="icon-compact"
+                            aria-label={t("clearHistoryEntry")}
+                            title={t(
+                              canClearHistory(h)
+                                ? "clearHistoryEntry"
+                                : "errors.historyProtected",
+                            )}
+                            disabled={busy || !canClearHistory(h)}
+                            onClick={() => void clearHistory(h.id)}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </div>
                       </div>
                       <time>
                         {new Date(h.created * 1000).toLocaleString(

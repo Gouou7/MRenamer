@@ -136,8 +136,8 @@ for (const scenario of [
       .getByRole("menuitem", { name: chinese ? "文件" : "File", exact: true })
       .click();
     for (const name of chinese
-      ? ["添加文件", "添加文件夹", "退出"]
-      : ["Add files", "Add folders", "Exit"]) {
+      ? ["添加重命名文件", "添加重命名文件夹", "添加文件夹内项目", "退出"]
+      : ["Add files", "Add folders", "Add folder contents", "Exit"]) {
       await expect(
         page.getByRole("menuitem", { name, exact: true }),
       ).toBeInViewport();

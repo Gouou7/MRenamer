@@ -16,17 +16,20 @@ const zh = {
   clearSearch: "清除搜索",
   subtitle: "批量重命名",
   workspace: "重命名工作区",
-  addFiles: "添加文件",
+  addFiles: "添加重命名文件",
   addObjects: "添加",
-  addFolders: "添加文件夹",
+  addFolders: "添加重命名文件夹",
+  addFolderContents: "添加文件夹内项目",
   removeSelected: "移除所选",
   clear: "清空",
   undo: "撤销",
   execute: "执行命名",
   settings: "设置",
-  settingsDescription: "外观、语言、载入选项与可用变量",
-  futureImports: "应用于之后载入的对象",
+  settingsDescription: "通用、添加偏好与可用变量",
   history: "操作记录",
+  clearHistoryEntry: "清除此记录",
+  clearAllHistory: "全部清除",
+  historyCleared: "已清除操作记录",
   close: "关闭",
   windowControls: "窗口控制",
   minimize: "最小化",
@@ -154,16 +157,19 @@ const zh = {
   drag: "拖动排序",
   notConfigured: "尚未配置",
   emptyText: "空",
+  general: "通用",
   appearance: "外观",
   theme: "主题",
   light: "浅色",
   dark: "深色",
   system: "跟随系统",
   language: "语言",
-  importOptions: "载入选项",
-  contents: "载入文件夹内容",
-  recursive: "包含子文件夹内容",
-  importHint: "默认只载入文件夹本身",
+  addPreferences: "添加偏好",
+  folderContentsPreferences: "添加文件夹内项目偏好",
+  includeFiles: "包含文件",
+  includeFolders: "包含文件夹",
+  recursive: "递归",
+  variables: "变量",
   browserOnly: "浏览器预览 文件操作请使用桌面版",
   local: "本地处理",
   offline: "文件保留在本机",
@@ -180,6 +186,8 @@ const zh = {
   historyCompleted: "已完成",
   pendingObjects: "待恢复对象",
   errors: {
+    historyClear: "无法清除操作记录",
+    historyProtected: "执行中或待恢复的记录不能清除",
     settingsSave: "无法保存设置",
     windowControl: "无法操作窗口",
     templateSyntax: "变量格式无效 请使用<Date>，字面量尖括号使用<<和>>",
@@ -229,15 +237,17 @@ const en = {
   addFiles: "Add files",
   addObjects: "Add",
   addFolders: "Add folders",
+  addFolderContents: "Add folder contents",
   removeSelected: "Remove selected",
   clear: "Clear",
   undo: "Undo",
   execute: "Rename",
   settings: "Settings",
-  settingsDescription:
-    "Appearance, language, import options and available variables",
-  futureImports: "Applies to items imported from now on",
+  settingsDescription: "General, add preferences and available variables",
   history: "History",
+  clearHistoryEntry: "Clear this record",
+  clearAllHistory: "Clear all",
+  historyCleared: "History cleared",
   close: "Close",
   windowControls: "Window controls",
   minimize: "Minimize",
@@ -367,16 +377,19 @@ const en = {
   drag: "Drag to reorder",
   notConfigured: "Not configured",
   emptyText: "Empty",
+  general: "General",
   appearance: "Appearance",
   theme: "Theme",
   light: "Light",
   dark: "Dark",
   system: "System",
   language: "Language",
-  importOptions: "Import options",
-  contents: "Load folder contents",
-  recursive: "Include subfolder contents",
-  importHint: "Only the selected folder is loaded by default",
+  addPreferences: "Add preferences",
+  folderContentsPreferences: "Folder contents preferences",
+  includeFiles: "Include files",
+  includeFolders: "Include folders",
+  recursive: "Recursive",
+  variables: "Variables",
   browserOnly: "Browser preview Open the desktop app to work with files",
   local: "Local processing",
   offline: "Files stay on this device",
@@ -393,6 +406,9 @@ const en = {
   historyCompleted: "Completed",
   pendingObjects: "Objects awaiting recovery",
   errors: {
+    historyClear: "Cannot clear history",
+    historyProtected:
+      "Records in progress or awaiting recovery cannot be cleared",
     settingsSave: "Cannot save settings",
     windowControl: "Cannot control the window",
     templateSyntax:
@@ -427,14 +443,15 @@ const en = {
 };
 void i18n.use(initReactI18next).init({
   resources: { "zh-CN": { translation: zh }, en: { translation: en } },
-  lng:
-    localStorage.getItem("renamer.language") ||
-    (navigator.language.startsWith("zh") ? "zh-CN" : "en"),
+  lng: ["zh-CN", "en"].includes(localStorage.getItem("renamer.language") ?? "")
+    ? localStorage.getItem("renamer.language")!
+    : navigator.language.startsWith("zh")
+      ? "zh-CN"
+      : "en",
   fallbackLng: "en",
   interpolation: { escapeValue: false },
 });
 i18n.on("languageChanged", (lng) => {
-  localStorage.setItem("renamer.language", lng);
   document.documentElement.lang = lng;
 });
 document.documentElement.lang = i18n.language;

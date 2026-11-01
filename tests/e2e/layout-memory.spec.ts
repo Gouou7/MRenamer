@@ -129,6 +129,13 @@ test("rule cards match the two-row action layout", async ({ page }) => {
   await drag.focus();
   await drag.press("Space");
   await expect(page.locator(".rule-item.is-dragging")).toHaveCount(1);
+  // Keyboard listeners and drop-target measurements settle after activation.
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
   await page.keyboard.press("ArrowDown");
   await expect
     .poll(

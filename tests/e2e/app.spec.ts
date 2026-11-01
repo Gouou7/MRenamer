@@ -39,11 +39,13 @@ test("empty state and rule sequence", async ({ page }) => {
 test("theme and language persist", async ({ page }) => {
   await page.goto("/");
   const settings = await openSettings(page);
-  await settings.getByRole("combobox", { name: "主题", exact: true }).click();
-  await settings.getByRole("option", { name: "深色", exact: true }).click();
+  await settings
+    .getByRole("combobox", { name: "外观", exact: true })
+    .selectOption("dark");
   await expect(page.locator("html")).toHaveClass(/dark/);
-  await settings.getByRole("combobox", { name: "语言", exact: true }).click();
-  await settings.getByRole("option", { name: "English", exact: true }).click();
+  await settings
+    .getByRole("combobox", { name: "语言", exact: true })
+    .selectOption("en");
   await settings.getByRole("button", { name: "Close", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Rename actions" }),

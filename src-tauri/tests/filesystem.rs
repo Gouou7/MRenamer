@@ -75,6 +75,122 @@ fn links_and_link_ancestors_are_not_scanned() {
 fn noop(_: Progress) {}
 
 #[test]
+fn clearing_history_keeps_files_and_other_operations_undoable_after_restart() {
+    let t = tempdir().unwrap();
+    let a = t.path().join("a.txt");
+    let b = t.path().join("b.txt");
+    fs::write(&a, "A").unwrap();
+    fs::write(&b, "B").unwrap();
+    let path = t.path().join("journal.db");
+    let mut engine = Engine::open(&path).unwrap();
+    let entries = load(&mut engine, &a, false);
+    let first = execute(&mut engine, &entries, vec![add("new_")]);
+    let entries = load(&mut engine, &b, false);
+    let second = execute(&mut engine, &entries, vec![add("new_")]);
+    engine.journal.clear_history(Some(&first.id)).unwrap();
+    drop(engine);
+    let mut engine = Engine::open(&path).unwrap();
+    assert_eq!(fs::read_to_string(t.path().join("new_a.txt")).unwrap(), "A");
+    assert_eq!(fs::read_to_string(t.path().join("new_b.txt")).unwrap(), "B");
+    engine.undo(&second.id, &noop).unwrap();
+    assert_eq!(fs::read_to_string(&b).unwrap(), "B");
+    assert_eq!(fs::read_to_string(t.path().join("new_a.txt")).unwrap(), "A");
+    assert!(engine.journal.steps(&first.id).unwrap().is_empty());
+}
+
+#[test]
+fn folder_contents_respects_kind_and_recursion_preferences() {
+    let t = tempdir().unwrap();
+    let root = t.path().join("objects");
+    fs::create_dir_all(root.join("sub/nested")).unwrap();
+    fs::write(root.join("a.txt"), "A").unwrap();
+    fs::write(root.join("sub/b.txt"), "B").unwrap();
+    fs::write(root.join("sub/nested/c.txt"), "C").unwrap();
+    let mut e = Engine::open(&t.path().join("journal.db")).unwrap();
+    for (files, folders, recursive, expected) in [
+        (true, true, false, vec!["a.txt", "sub"]),
+        (true, false, false, vec!["a.txt"]),
+        (false, true, false, vec!["sub"]),
+        (true, false, true, vec!["a.txt", "b.txt", "c.txt"]),
+        (false, true, true, vec!["nested", "sub"]),
+        (
+            true,
+            true,
+            true,
+            vec!["a.txt", "b.txt", "c.txt", "nested", "sub"],
+        ),
+        (false, false, true, vec![]),
+    ] {
+        let entries = e
+            .scan_folder_contents(
+                vec![root.to_str().unwrap().into(), root.to_str().unwrap().into()],
+                files,
+                folders,
+                recursive,
+                &noop,
+            )
+            .unwrap();
+        let mut names: Vec<_> = entries.iter().map(|entry| entry.name.as_str()).collect();
+        names.sort();
+        assert_eq!(names, expected);
+        let ids: Vec<_> = entries.iter().map(|entry| entry.id.clone()).collect();
+        let plan = e.preview(ids.clone(), ids, vec![], 0).unwrap();
+        assert_eq!(plan.rows.len(), expected.len());
+    }
+    let entries = e
+        .scan(vec![root.to_str().unwrap().into()], false, false, &noop)
+        .unwrap();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].name, "objects");
+}
+
+#[cfg(windows)]
+#[test]
+fn folder_contents_does_not_follow_junctions_or_link_ancestors() {
+    let t = tempdir().unwrap();
+    let root = t.path().join("objects");
+    let outside = t.path().join("outside");
+    fs::create_dir(&root).unwrap();
+    fs::create_dir(&outside).unwrap();
+    fs::write(outside.join("secret.txt"), "content").unwrap();
+    let junction = root.join("junction");
+    let output = std::process::Command::new("cmd")
+        .args(["/C", "mklink", "/J"])
+        .arg(&junction)
+        .arg(&outside)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let mut e = Engine::open(&t.path().join("journal.db")).unwrap();
+    let entries = e
+        .scan_folder_contents(
+            vec![root.to_str().unwrap().into()],
+            true,
+            false,
+            true,
+            &noop,
+        )
+        .unwrap();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].kind, "link");
+    assert_eq!(entries[0].error.as_deref(), Some("unsupportedLink"));
+    let error = e
+        .scan_folder_contents(
+            vec![junction.to_str().unwrap().into()],
+            true,
+            true,
+            true,
+            &noop,
+        )
+        .unwrap_err();
+    assert_eq!(error.code, "unsupportedLink");
+}
+
+#[test]
 fn alphabetic_preview_matches_execution_and_undo_after_restart() {
     for (style, names) in [
         (NumberStyle::Upper, ["Za.txt", "AA子目录"]),

@@ -80,6 +80,22 @@ mod desktop {
         .await
     }
     #[tauri::command]
+    async fn scan_folder_contents(
+        state: tauri::State<'_, State>,
+        app: tauri::AppHandle,
+        paths: Vec<String>,
+        include_files: bool,
+        include_folders: bool,
+        recursive: bool,
+    ) -> Result<Vec<FileEntry>> {
+        task(state.0.clone(), move |e| {
+            e.scan_folder_contents(paths, include_files, include_folders, recursive, &|p| {
+                let _ = app.emit("operation-progress", p);
+            })
+        })
+        .await
+    }
+    #[tauri::command]
     async fn preview_rename(
         state: tauri::State<'_, State>,
         ids: Vec<String>,
@@ -108,6 +124,24 @@ mod desktop {
     #[tauri::command]
     async fn list_history(state: tauri::State<'_, State>) -> Result<Vec<HistoryEntry>> {
         task(state.0.clone(), move |e| e.journal.history()).await
+    }
+    #[tauri::command]
+    async fn clear_history(
+        state: tauri::State<'_, State>,
+        operation_id: Option<String>,
+    ) -> Result<()> {
+        task(state.0.clone(), move |e| {
+            e.journal
+                .clear_history(operation_id.as_deref())
+                .map_err(|error| {
+                    if error.code == "database" {
+                        AppError::new("historyClear", error.detail)
+                    } else {
+                        error
+                    }
+                })
+        })
+        .await
     }
     #[tauri::command]
     async fn undo_rename(
@@ -158,9 +192,11 @@ mod desktop {
                 system_accent_color,
                 list_variables,
                 scan_entries,
+                scan_folder_contents,
                 preview_rename,
                 execute_rename,
                 list_history,
+                clear_history,
                 undo_rename
             ])
             .run(tauri::generate_context!())

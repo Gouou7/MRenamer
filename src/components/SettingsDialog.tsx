@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { X } from "lucide-react";
+import { Braces, FolderPlus, Settings2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,9 +11,10 @@ import {
 } from "@/components/ui/dialog";
 import {
   FieldGroup,
+  Field,
+  FieldLabel,
   FieldSet,
   FieldLegend,
-  FieldDescription,
 } from "@/components/ui/field";
 import {
   Accordion,
@@ -22,7 +23,11 @@ import {
   AccordionContent,
 } from "@/components/ui/accordion";
 import { Separator } from "@/components/ui/separator";
-import { Choice, Flag } from "@/components/RuleEditor";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
 import { VariablesReference } from "@/components/VariablesReference";
 import type { Preferences } from "@/lib/preferences";
 import type { AppError } from "@/lib/types";
@@ -59,7 +64,7 @@ export function SettingsDialog({
             <DialogClose
               render={
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="icon-compact"
                   aria-label={t("close")}
                   title={t("close")}
@@ -84,65 +89,115 @@ export function SettingsDialog({
             </Alert>
           )}
           <FieldGroup>
-            <FieldSet>
-              <FieldLegend variant="label">{t("appearance")}</FieldLegend>
-              <FieldGroup>
-                <Choice
-                  label={t("theme")}
-                  value={preferences.theme}
-                  values={["system", "light", "dark"].map((value) => [
-                    value,
-                    t(value),
-                  ])}
-                  popupClassName="settings-options"
-                  onChange={(theme) =>
-                    onChange({ theme: theme as Preferences["theme"] })
-                  }
-                />
-                <Choice
-                  label={t("language")}
-                  value={preferences.language}
-                  values={[
-                    ["zh-CN", "简体中文"],
-                    ["en", "English"],
-                  ]}
-                  popupClassName="settings-options"
-                  onChange={(language) =>
-                    onChange({ language: language as Preferences["language"] })
-                  }
-                />
+            <FieldSet className="settings-section">
+              <FieldLegend variant="label">
+                <span className="flex items-center gap-2">
+                  <Settings2 className="size-4" aria-hidden="true" />
+                  {t("general")}
+                </span>
+              </FieldLegend>
+              <FieldGroup className="settings-section-body">
+                <Field>
+                  <FieldLabel htmlFor="settings-appearance">
+                    {t("appearance")}
+                  </FieldLabel>
+                  <NativeSelect
+                    id="settings-appearance"
+                    value={preferences.theme}
+                    onChange={(event) =>
+                      onChange({
+                        theme: event.target.value as Preferences["theme"],
+                      })
+                    }
+                  >
+                    {["dark", "light", "system"].map((value) => (
+                      <NativeSelectOption key={value} value={value}>
+                        {t(value)}
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                </Field>
+                <Separator />
+                <Field>
+                  <FieldLabel htmlFor="settings-language">
+                    {t("language")}
+                  </FieldLabel>
+                  <NativeSelect
+                    id="settings-language"
+                    value={preferences.language}
+                    onChange={(event) =>
+                      onChange({
+                        language: event.target.value as Preferences["language"],
+                      })
+                    }
+                  >
+                    <NativeSelectOption value="zh-CN">
+                      中文简体
+                    </NativeSelectOption>
+                    <NativeSelectOption value="en">English</NativeSelectOption>
+                    <NativeSelectOption value="system">
+                      {t("system")}
+                    </NativeSelectOption>
+                  </NativeSelect>
+                </Field>
               </FieldGroup>
             </FieldSet>
-            <Separator />
-            <FieldSet>
-              <FieldLegend variant="label">{t("importOptions")}</FieldLegend>
-              <FieldDescription>{t("futureImports")}</FieldDescription>
-              <FieldGroup>
-                <Flag
-                  label={t("contents")}
-                  value={preferences.contents}
-                  onChange={(contents) => onChange({ contents })}
-                />
-                <Flag
-                  label={t("recursive")}
-                  value={preferences.recursive}
-                  disabled={!preferences.contents}
-                  onChange={(recursive) => onChange({ recursive })}
-                />
-                <FieldDescription>{t("importHint")}</FieldDescription>
+            <FieldSet className="settings-section">
+              <FieldLegend variant="label">
+                <span className="flex items-center gap-2">
+                  <FolderPlus className="size-4" aria-hidden="true" />
+                  {t("addPreferences")}
+                </span>
+              </FieldLegend>
+              <FieldGroup className="settings-section-body">
+                <FieldSet>
+                  <FieldLegend
+                    variant="label"
+                    className="settings-preference-label"
+                  >
+                    {t("folderContentsPreferences")}
+                  </FieldLegend>
+                  <FieldGroup>
+                    {(
+                      ["includeFiles", "includeFolders", "recursive"] as const
+                    ).map((key) => (
+                      <Field key={key} orientation="horizontal">
+                        <Checkbox
+                          id={`settings-${key}`}
+                          checked={preferences[key]}
+                          onCheckedChange={(checked) =>
+                            onChange({ [key]: checked })
+                          }
+                        />
+                        <FieldLabel htmlFor={`settings-${key}`}>
+                          {t(key)}
+                        </FieldLabel>
+                      </Field>
+                    ))}
+                  </FieldGroup>
+                </FieldSet>
               </FieldGroup>
             </FieldSet>
-            <Separator />
-            <Accordion defaultValue={[]}>
-              <AccordionItem value="variables">
-                <AccordionTrigger className="settings-variables-trigger">
-                  {t("availableVariables")}
-                </AccordionTrigger>
-                <AccordionContent>
-                  <VariablesReference />
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+            <FieldSet className="settings-section">
+              <FieldLegend variant="label">
+                <span className="flex items-center gap-2">
+                  <Braces className="size-4" aria-hidden="true" />
+                  {t("variables")}
+                </span>
+              </FieldLegend>
+              <FieldGroup className="settings-section-body">
+                <Accordion defaultValue={[]}>
+                  <AccordionItem value="variables">
+                    <AccordionTrigger className="settings-variables-trigger">
+                      {t("availableVariables")}
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <VariablesReference />
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </FieldGroup>
+            </FieldSet>
           </FieldGroup>
         </div>
       </DialogContent>

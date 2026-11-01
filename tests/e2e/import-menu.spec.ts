@@ -11,7 +11,9 @@ test("file menu opens the appropriate file or folder picker", async ({
   );
   const file = page.getByRole("menuitem", { name: "文件", exact: true });
   await file.click();
-  await page.getByRole("menuitem", { name: "添加文件", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "添加重命名文件", exact: true })
+    .click();
   await expect(page.locator(".status-counts")).toContainText("2");
   await expect(page.getByRole("menu")).toHaveCount(0);
   await expect
@@ -21,7 +23,7 @@ test("file menu opens the appropriate file or folder picker", async ({
   await file.focus();
   await page.keyboard.press("ArrowDown");
   const folder = page.getByRole("menuitem", {
-    name: "添加文件夹",
+    name: "添加重命名文件夹",
     exact: true,
   });
   await folder.focus();
@@ -36,4 +38,16 @@ test("file menu opens the appropriate file or folder picker", async ({
     "2",
   );
   await expect(page.getByRole("menu")).toHaveCount(0);
+  await file.click();
+  await page
+    .getByRole("menuitem", { name: "添加文件夹内项目", exact: true })
+    .click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__scanCalls.at(-1)))
+    .toMatchObject({
+      command: "scan_folder_contents",
+      includeFiles: true,
+      includeFolders: true,
+      recursive: false,
+    });
 });

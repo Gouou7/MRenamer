@@ -31,7 +31,7 @@ type Props = {
   undoDisabled: boolean;
   removeDisabled: boolean;
   clearDisabled: boolean;
-  onAdd: (directory: boolean) => void;
+  onAdd: (mode: "files" | "folders" | "contents") => void;
   onExecute: () => void;
   onUndo: () => void;
   onRemove: () => void;
@@ -92,15 +92,21 @@ export function AppToolbar(props: Props) {
                 <MenubarGroup>
                   <MenubarItem
                     disabled={props.busy}
-                    onClick={() => props.onAdd(false)}
+                    onClick={() => props.onAdd("files")}
                   >
                     {t("addFiles")}
                   </MenubarItem>
                   <MenubarItem
                     disabled={props.busy}
-                    onClick={() => props.onAdd(true)}
+                    onClick={() => props.onAdd("folders")}
                   >
                     {t("addFolders")}
+                  </MenubarItem>
+                  <MenubarItem
+                    disabled={props.busy}
+                    onClick={() => props.onAdd("contents")}
+                  >
+                    {t("addFolderContents")}
                   </MenubarItem>
                 </MenubarGroup>
                 <MenubarSeparator />

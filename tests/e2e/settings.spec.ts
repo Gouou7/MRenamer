@@ -15,23 +15,26 @@ test("settings stays in the main window and preserves the workspace", async ({
   const close = dialog.getByRole("button", { name: "关闭", exact: true });
   await expect(close).toHaveText("");
   await expect(close.locator("svg")).toHaveCount(1);
+  await expect(close).toHaveClass(/bg-secondary/);
   expect(context.pages()).toHaveLength(1);
   expect(await page.evaluate(() => (window as any).__settingsOpenCalls)).toBe(
     0,
   );
   await expect(dialog.getByRole("tab")).toHaveCount(0);
-  for (const name of ["外观", "载入选项"])
+  for (const name of ["通用", "添加偏好", "变量"])
     await expect(
       dialog.getByRole("group", { name, exact: true }),
     ).toBeVisible();
   await expect(
     dialog.getByRole("button", { name: "可用变量", exact: true }),
   ).toHaveAttribute("aria-expanded", "false");
-  await dialog.getByRole("combobox", { name: "主题", exact: true }).click();
-  await page.getByRole("option", { name: "深色", exact: true }).click();
+  await dialog
+    .getByRole("combobox", { name: "外观", exact: true })
+    .selectOption("dark");
   await expect(page.locator("html")).toHaveClass(/dark/);
-  await dialog.getByRole("combobox", { name: "语言", exact: true }).click();
-  await page.getByRole("option", { name: "English", exact: true }).click();
+  await dialog
+    .getByRole("combobox", { name: "语言", exact: true })
+    .selectOption("en");
   await expect(
     page.getByRole("dialog", { name: "Settings", exact: true }),
   ).toBeVisible();
@@ -42,8 +45,8 @@ test("settings stays in the main window and preserves the workspace", async ({
   await expect(page.locator("tbody")).toContainText("1_image0.png");
   await openSettings(page, false);
   await expect(
-    page.getByRole("combobox", { name: "Theme", exact: true }),
-  ).toContainText("Dark");
+    page.getByRole("combobox", { name: "Appearance", exact: true }),
+  ).toHaveValue("dark");
   await page.keyboard.press("Escape");
   await page.reload();
   await expect(page.locator("html")).toHaveClass(/dark/);
@@ -52,33 +55,64 @@ test("settings stays in the main window and preserves the workspace", async ({
   ).toBeVisible();
 });
 
-test("import preferences persist and apply to the next import", async ({
+test("folder contents preferences persist and only affect the contents action", async ({
   page,
 }) => {
   await mockDesktop(page, 2);
   await page.goto("/");
   await openSettings(page);
-  const recursive = page.getByRole("switch", {
-    name: "包含子文件夹内容",
-    exact: true,
-  });
-  await expect(recursive).toBeDisabled();
+  await expect(
+    page.getByRole("checkbox", { name: "包含文件", exact: true }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("checkbox", { name: "包含文件夹", exact: true }),
+  ).toBeChecked();
   await page
-    .getByRole("switch", { name: "载入文件夹内容", exact: true })
-    .click();
-  await recursive.click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "关闭", exact: true })
-    .click();
+    .getByRole("checkbox", { name: "包含文件夹", exact: true })
+    .uncheck();
+  await page.getByRole("checkbox", { name: "递归", exact: true }).check();
+  await page.keyboard.press("Escape");
   await addFiles(page);
   await expect
     .poll(() => page.evaluate(() => (window as any).__scanCalls.at(-1)))
-    .toMatchObject({ contents: true, recursive: true });
+    .toMatchObject({
+      command: "scan_entries",
+      contents: false,
+      recursive: false,
+    });
+  await page.getByRole("menuitem", { name: "文件", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "添加重命名文件夹", exact: true })
+    .click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__scanCalls.at(-1)))
+    .toMatchObject({
+      command: "scan_entries",
+      contents: false,
+      recursive: false,
+    });
+  await page.getByRole("menuitem", { name: "文件", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "添加文件夹内项目", exact: true })
+    .click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__scanCalls.at(-1)))
+    .toMatchObject({
+      command: "scan_folder_contents",
+      includeFiles: true,
+      includeFolders: false,
+      recursive: true,
+    });
   await page.reload();
   await openSettings(page);
   await expect(
-    page.getByRole("switch", { name: "包含子文件夹内容", exact: true }),
+    page.getByRole("checkbox", { name: "包含文件", exact: true }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("checkbox", { name: "包含文件夹", exact: true }),
+  ).not.toBeChecked();
+  await expect(
+    page.getByRole("checkbox", { name: "递归", exact: true }),
   ).toBeChecked();
 });
 
@@ -119,10 +153,14 @@ for (const language of ["zh-CN", "en"]) {
         await expect(label).toHaveCSS("font-size", "12px");
       for (const field of await dialog.getByRole("combobox").all())
         await expect(field).toHaveCSS("font-size", "12px");
-      await dialog.getByRole("combobox").first().click();
-      for (const option of await page.getByRole("option").all())
-        await expect(option).toHaveCSS("font-size", "12px");
-      await page.keyboard.press("Escape");
+      await dialog.getByRole("combobox").first().focus();
+      await page.keyboard.press("Home");
+      await page.keyboard.press("End");
+      await expect(dialog.getByRole("combobox").first()).toHaveValue("system");
+      await dialog.getByRole("combobox").first().selectOption(theme);
+      await expect(page.locator("html")).toHaveClass(
+        theme === "dark" ? /dark/ : /^$/,
+      );
       await expect(dialog).toBeVisible();
       await page.screenshot({
         path: `.work/screenshots/settings-dialog-${language}-${theme}.png`,
@@ -179,12 +217,46 @@ test("failed preference writes are reported inside settings", async ({
       return original.call(this, key, value);
     };
   });
-  await page.getByRole("combobox", { name: "主题", exact: true }).click();
-  await page.getByRole("option", { name: "深色", exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "外观", exact: true })
+    .selectOption("dark");
   await expect(page.getByRole("dialog").getByRole("alert")).toContainText(
     "无法保存设置",
   );
   await expect(
-    page.getByRole("combobox", { name: "主题", exact: true }),
-  ).toContainText("跟随系统");
+    page.getByRole("combobox", { name: "外观", exact: true }),
+  ).toHaveValue("system");
+});
+
+test("language follows the system by default and after an explicit override", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await openSettings(page);
+  const language = page.getByRole("combobox", { name: "语言", exact: true });
+  await expect(language).toHaveValue("system");
+  await language.selectOption("en");
+  await expect(
+    page.getByRole("dialog", { name: "Settings", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("combobox", { name: "Language", exact: true })
+    .selectOption("system");
+  await expect(language).toHaveValue("system");
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "language", {
+      configurable: true,
+      value: "en-US",
+    });
+    window.dispatchEvent(new Event("languagechange"));
+  });
+  await expect(
+    page.getByRole("dialog", { name: "Settings", exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(() => localStorage.getItem("renamer.language")),
+  ).toBe("system");
+  await page.reload();
+  await openSettings(page);
+  await expect(language).toHaveValue("system");
 });

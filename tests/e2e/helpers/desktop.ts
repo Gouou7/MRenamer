@@ -2,7 +2,9 @@ import type { Page } from "@playwright/test";
 import variables from "../../../src/lib/variables.json" with { type: "json" };
 export async function addFiles(page: Page) {
   await page.getByRole("menuitem", { name: "文件", exact: true }).click();
-  await page.getByRole("menuitem", { name: "添加文件", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "添加重命名文件", exact: true })
+    .click();
 }
 export async function openSettings(page: Page, chinese = true) {
   await page
@@ -34,6 +36,7 @@ export async function mockDesktop(page: Page, count: number) {
       win.__scanCalls = [];
       win.__historyEntries = [];
       win.__undoCalls = [];
+      win.__clearHistoryCalls = [];
       const entries = Array.from({ length: count }, (_, i) => ({
         id: `file-${i}`,
         path: `/fixtures/image${i}.png`,
@@ -113,6 +116,20 @@ export async function mockDesktop(page: Page, count: number) {
             return win.__accentColor;
           }
           if (command === "list_history") return win.__historyEntries;
+          if (command === "clear_history") {
+            win.__clearHistoryCalls.push(args.operationId);
+            if (win.__clearHistoryDelay)
+              await new Promise((resolve) =>
+                setTimeout(resolve, win.__clearHistoryDelay),
+              );
+            if (win.__clearHistoryError) throw win.__clearHistoryError;
+            win.__historyEntries = win.__historyEntries.filter(
+              (entry: any) =>
+                !["completed", "undone", "rolledBack"].includes(entry.status) ||
+                (args.operationId !== null && entry.id !== args.operationId),
+            );
+            return null;
+          }
           if (command === "undo_rename") {
             win.__undoCalls.push(args.operationId);
             if (win.__undoError)
@@ -136,8 +153,11 @@ export async function mockDesktop(page: Page, count: number) {
             win.__dialogCalls.push(args.options);
             return ["/fixtures"];
           }
-          if (command === "scan_entries") {
-            win.__scanCalls.push(args);
+          if (
+            command === "scan_entries" ||
+            command === "scan_folder_contents"
+          ) {
+            win.__scanCalls.push({ command, ...args });
             return entries;
           }
           if (command === "plugin:window|close") {

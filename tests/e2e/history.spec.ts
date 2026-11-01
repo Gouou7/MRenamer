@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { mockDesktop } from "./helpers/desktop";
+import { addFiles, mockDesktop } from "./helpers/desktop";
 
 for (const language of ["zh-CN", "en"]) {
   for (const theme of ["light", "dark"]) {
@@ -43,7 +43,19 @@ for (const language of ["zh-CN", "en"]) {
         "13px",
       );
       await expect(drawer.locator(".history-item")).toHaveCount(60);
-      await expect(drawer.locator(".history-item button")).toHaveCount(1);
+      await expect(
+        drawer.getByRole("button", {
+          name: zh ? "清除此记录" : "Clear this record",
+          exact: true,
+        }),
+      ).toHaveCount(60);
+      const close = drawer.getByRole("button", {
+        name: zh ? "关闭" : "Close",
+        exact: true,
+      });
+      await expect(close).toHaveText("");
+      await expect(close.locator("svg")).toHaveCount(1);
+      await expect(close).toHaveClass(/bg-secondary/);
       await drawer
         .locator(".history-item")
         .first()
@@ -124,4 +136,106 @@ test("history drawer supports a swipe down to dismiss", async ({ page }) => {
   await page.mouse.move(handle.x + handle.width / 2, 615, { steps: 15 });
   await page.mouse.up();
   await expect(drawer).toHaveCount(0);
+});
+
+test("individual and bulk cleanup preserve recovery records and the workspace", async ({
+  page,
+}) => {
+  await mockDesktop(page, 2);
+  await page.addInitScript(() => {
+    (window as any).__historyEntries = [
+      "completed",
+      "undone",
+      "rolledBack",
+      "recoveryNeeded",
+    ].map((status, index) => ({
+      id: `record-${index}`,
+      created: 1700000000 - index,
+      status,
+      count: 1,
+      detail: "",
+      pendingPaths:
+        status === "recoveryNeeded" ? ["/fixtures/pending.txt"] : [],
+    }));
+  });
+  await page.goto("/");
+  await addFiles(page);
+  await page.getByRole("button", { name: "自动编号", exact: true }).click();
+  await page.getByRole("button", { name: "操作记录", exact: true }).click();
+  const drawer = page.getByRole("dialog");
+  const clear = drawer.getByRole("button", { name: "清除此记录", exact: true });
+  await expect(clear).toHaveCount(4);
+  await expect(clear.last()).toBeDisabled();
+  await clear.first().focus();
+  await page.keyboard.press("Enter");
+  await expect(clear).toHaveCount(3);
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__clearHistoryCalls))
+    .toEqual(["record-0"]);
+  const clearAll = drawer.getByRole("button", {
+    name: "全部清除",
+    exact: true,
+  });
+  await clearAll.click();
+  await expect(clear).toHaveCount(1);
+  await expect(clear.first()).toBeDisabled();
+  await expect(clearAll).toBeDisabled();
+  await expect(drawer).toContainText("需要恢复");
+  await expect(drawer).toContainText("/fixtures/pending.txt");
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__clearHistoryCalls))
+    .toEqual(["record-0", null]);
+  await drawer.getByRole("button", { name: "关闭", exact: true }).click();
+  await expect(page.locator(".files-heading [data-slot=badge]")).toHaveText(
+    "2",
+  );
+  await expect(page.getByTestId("rule-item")).toHaveCount(1);
+  await page.getByRole("button", { name: "操作记录", exact: true }).click();
+  await expect(drawer.locator(".history-item")).toHaveCount(1);
+  await expect(drawer).toContainText("需要恢复");
+});
+
+test("cleanup errors keep records and busy state prevents duplicate requests", async ({
+  page,
+}) => {
+  await mockDesktop(page, 0);
+  await page.addInitScript(() => {
+    const win = window as any;
+    win.__historyEntries = [
+      {
+        id: "record",
+        created: 1700000000,
+        status: "completed",
+        count: 1,
+        detail: "",
+        pendingPaths: [],
+      },
+    ];
+    win.__clearHistoryDelay = 400;
+    win.__clearHistoryError = { code: "historyClear", detail: "fixture" };
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "操作记录", exact: true }).click();
+  const drawer = page.getByRole("dialog");
+  const clear = drawer.getByRole("button", { name: "清除此记录", exact: true });
+  const clearAll = drawer.getByRole("button", {
+    name: "全部清除",
+    exact: true,
+  });
+  await clear.click();
+  await expect(clear).toBeDisabled();
+  await expect(clearAll).toBeDisabled();
+  await expect(clear).toBeEnabled();
+  await expect(drawer.locator(".history-item")).toHaveCount(1);
+  await expect(page.locator(".status-bar")).toContainText("无法清除操作记录");
+  await expect(drawer.getByRole("alert")).toContainText("无法清除操作记录");
+  expect(
+    await page.evaluate(() => (window as any).__clearHistoryCalls),
+  ).toEqual(["record"]);
+  await page.evaluate(() => {
+    (window as any).__clearHistoryError = null;
+  });
+  await clearAll.click();
+  await expect(drawer).toContainText("暂无操作记录");
+  await expect(clearAll).toBeDisabled();
 });

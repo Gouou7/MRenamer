@@ -86,6 +86,29 @@ impl Journal {
             .collect::<std::result::Result<Vec<_>, _>>()?;
         Ok(values)
     }
+    pub fn clear_history(&self, operation_id: Option<&str>) -> Result<()> {
+        let transaction = self.db.unchecked_transaction()?;
+        if let Some(id) = operation_id {
+            let protected: bool = transaction.query_row(
+                "SELECT EXISTS(SELECT 1 FROM operations WHERE id=?1 AND status NOT IN ('completed','undone','rolledBack'))",
+                [id],
+                |row| row.get(0),
+            )?;
+            if protected {
+                return Err(AppError::new("historyProtected", ""));
+            }
+        }
+        transaction.execute(
+            "DELETE FROM steps WHERE operation IN (SELECT id FROM operations WHERE status IN ('completed','undone','rolledBack') AND (?1 IS NULL OR id=?1))",
+            params![operation_id],
+        )?;
+        transaction.execute(
+            "DELETE FROM operations WHERE status IN ('completed','undone','rolledBack') AND (?1 IS NULL OR id=?1)",
+            params![operation_id],
+        )?;
+        transaction.commit()?;
+        Ok(())
+    }
     pub fn history(&self) -> Result<Vec<HistoryEntry>> {
         let mut st=self.db.prepare("SELECT id,created,status,count,detail FROM operations ORDER BY created DESC,rowid DESC")?;
         let mut values = st
