@@ -28,6 +28,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "licenseFile": "../LICENSE",
     "category": "Utility",
     "shortDescription": "Batch file and folder renaming",
     "icon": ["icons/icon.png", "icons/icon.ico", "icons/icon.icns"]

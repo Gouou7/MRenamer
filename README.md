@@ -49,3 +49,7 @@ pnpm tauri build --no-bundle
 ```
 
 Windows程序输出到`src-tauri/target/release/mrenamer.exe`。构建需要在对应系统上进行。使用`pnpm dev`可预览界面，文件操作需要桌面版。
+
+## 许可证
+
+本项目采用 GNU 通用公共许可证第3版（GPL-3.0-only），详见 [LICENSE](LICENSE)。第三方依赖保留其原有许可证。
